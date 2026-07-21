@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Okey 101 - Premium</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background grid decoration -->
+    <div class="bg-glow"></div>
+
+    <div class="app-container">
+        <!-- TOP NAVBAR: Indicator, Game Status, Deck Details -->
+        <header class="top-nav">
+            <div class="brand">
+                <span class="logo-icon">🀫</span>
+                <h1>Okey 101</h1>
+                <span class="badge" id="round-indicator">El: 1 / 3</span>
+                <span class="badge" id="pot-indicator" style="background: linear-gradient(135deg, #ff9800, #f57c00); color: #fff; font-weight: 700; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 0 10px rgba(245, 124, 0, 0.4);">Çanak: 0 Çip</span>
+                <span class="team-score-badge team-a-badge" id="team-a-score-badge" style="display: none;">Siz & Canan: <span id="team-a-score-val">0 Puan</span></span>
+                <span class="team-score-badge team-b-badge" id="team-b-score-badge" style="display: none;">Metin & Oya: <span id="team-b-score-val">0 Puan</span></span>
+            </div>
+            
+            <div class="game-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Gösterge</span>
+                    <div class="indicator-tile-wrapper">
+                        <div class="mini-tile" id="indicator-tile-view">
+                            <span class="tile-val">?</span>
+                            <div class="tile-cup"><span class="tile-sym">♥</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">OKEY</span>
+                    <div class="indicator-tile-wrapper">
+                        <div class="mini-tile wildcard" id="okey-tile-view">
+                            <span class="tile-val">?</span>
+                            <div class="tile-cup"><span class="tile-sym">♥</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <div class="game-threshold-badge" id="threshold-badge-view" title="El açmak için perlerinizin ulaşması gereken baraj puanı">
+                        <span class="threshold-label">Baraj:</span>
+                        <span class="threshold-value" id="threshold-val">101</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-right">
+                <div class="user-chips-badge" id="user-chips-badge-view" style="display: flex; align-items: center; gap: 6px; background: rgba(0, 230, 118, 0.15); border: 1.5px solid rgba(0, 230, 118, 0.35); border-radius: 8px; padding: 6px 12px; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #a5d6a7; margin-right: 12px; box-shadow: 0 4px 10px rgba(0, 230, 118, 0.15);">
+                    <span style="font-size: 15px;">💰</span>
+                    <span id="header-user-chips">5000 Çip</span>
+                </div>
+                <div class="deck-status">
+                    <span class="deck-icon">🎴</span>
+                    <span class="deck-count" id="deck-count-view">Deste: 106</span>
+                </div>
+                <div class="header-setting">
+                    <select id="select-bot-speed" class="setting-select compact-select">
+                        <option value="2000">Hız: Yavaş</option>
+                        <option value="1200" selected>Hız: Normal</option>
+                        <option value="500">Hız: Hızlı</option>
+                        <option value="100">Hız: Işık Hızı</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+             <!-- CENTER: Okey Felt Table & Player Areas -->
+             <section class="table-container">
+                 <div class="okey-table">
+                     <!-- THE MASSIVE SHARED FELT BOARD IN THE CENTER -->
+                     <div class="felt-board">
+                         <!-- Column 0: Siz (Bottom) - Player 0 -->
+                         <div class="meld-column active-column">
+                             <div class="column-header" id="table-area-0">
+                                 <div class="header-top-row">
+                                     <span class="turn-dot"></span>
+                                     <span class="name">Siz</span>
+                                 </div>
+                                 <div class="header-stats-row">
+                                     <span class="player-score-badge" id="player-score-0">0 Puan</span>
+                                     <span class="status-indicator" id="player-status-0">Kapalı</span>
+                                     <span class="current-total-sum" id="selected-sum-indicator" style="display: none;">Seçili: 0</span>
+                                 </div>
+                             </div>
+                             <div class="player-melds-scroll" id="player-melds-0">
+                                 <div class="empty-table-msg">Henüz açmadınız.</div>
+                             </div>
+                         </div>
+
+                         <!-- Column 1: Bot 1 (Left) - Player 1 -->
+                         <div class="meld-column">
+                             <div class="column-header" id="table-area-1">
+                                 <div class="header-top-row">
+                                     <span class="turn-dot"></span>
+                                     <span class="name">Metin (Bot 1)</span>
+                                 </div>
+                                 <div class="header-stats-row">
+                                     <span class="player-score-badge" id="player-score-1">0 Puan</span>
+                                     <span class="status-indicator" id="player-status-1">Kapalı</span>
+                                 </div>
+                             </div>
+                             <div class="player-melds-scroll" id="player-melds-1">
+                                 <div class="empty-table-msg">Henüz açmadı</div>
+                             </div>
+                         </div>
+
+                         <!-- Column 2: Bot 2 (Top) - Player 2 -->
+                         <div class="meld-column">
+                             <div class="column-header" id="table-area-2">
+                                 <div class="header-top-row">
+                                     <span class="turn-dot"></span>
+                                     <span class="name">Canan (Bot 2)</span>
+                                 </div>
+                                 <div class="header-stats-row">
+                                     <span class="player-score-badge" id="player-score-2">0 Puan</span>
+                                     <span class="status-indicator" id="player-status-2">Kapalı</span>
+                                 </div>
+                             </div>
+                             <div class="player-melds-scroll" id="player-melds-2">
+                                 <div class="empty-table-msg">Henüz açmadı</div>
+                             </div>
+                         </div>
+
+                         <!-- Column 3: Bot 3 (Right) - Player 3 -->
+                         <div class="meld-column">
+                             <div class="column-header" id="table-area-3">
+                                 <div class="header-top-row">
+                                     <span class="turn-dot"></span>
+                                     <span class="name">Oya (Bot 3)</span>
+                                 </div>
+                                 <div class="header-stats-row">
+                                     <span class="player-score-badge" id="player-score-3">0 Puan</span>
+                                     <span class="status-indicator" id="player-status-3">Kapalı</span>
+                                 </div>
+                             </div>
+                             <div class="player-melds-scroll" id="player-melds-3">
+                                 <div class="empty-table-msg">Henüz açmadı</div>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+             </section>
+        </main>
+
+        <!-- BOTTOM CONTROLS & USER RACK -->
+        <footer class="game-footer">
+            <div class="footer-layout">
+                <!-- LEFT COLUMN: Sorter & Clear Actions -->
+                <div class="footer-col footer-col-left">
+                    <button class="btn btn-secondary btn-sm" id="btn-sort-groups" title="Taşları seriler/gruplar halinde dizer">
+                        <span>Perleri Diz</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="btn-sort-pairs" title="Taşları çiftler halinde dizer">
+                        <span>Çiftleri Diz</span>
+                    </button>
+                    <button class="btn btn-danger btn-sm" id="btn-clear-selection">
+                        <span>Seçimi Temizle</span>
+                    </button>
+                </div>
+
+                <!-- DRAW PILE (Moved here next to the rack) -->
+                <div class="footer-deck-pile">
+                    <div class="center-pile draw-pile" id="main-draw-pile" title="Desteden taş çekmek için tıklayın">
+                        <div class="pile-card face-down">
+                            <span class="card-icon">🀫</span>
+                            <span class="label">Çek</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CENTER COLUMN: Rack, Dynamic Status Badge, Open Buttons -->
+                <div class="footer-col footer-col-center">
+                    <div class="action-toolbar">
+                        <div class="rack-stats">
+                            <span class="badge-stat" id="hand-total-badge" style="display: none;">Eldeki Toplam: 0</span>
+                            <span class="badge-stat" id="selected-total-badge" style="display: none;">Seçili: 0</span>
+                            <span class="badge-stat" id="dynamic-status-badge">Seçim Yapın (Per veya Çift)</span>
+                        </div>
+                        <div class="game-actions">
+                            <button class="btn btn-warning btn-sm glow-btn" id="btn-show-indicator" style="display: none;" title="Elinizdeki gösterge taşını göstererek -101 puan kazanın">
+                                <span>Göstergeyi Göster (-101)</span>
+                            </button>
+                            <button class="btn btn-primary btn-sm" id="btn-open-melds" disabled>
+                                <span>Elin Aç (101)</span>
+                            </button>
+                            <button class="btn btn-primary btn-sm" id="btn-open-pairs" disabled>
+                                <span>Çift Aç (5 Çift)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Double-row Player Rack -->
+                    <div class="player-rack-container">
+                        <div class="player-rack" id="player-rack-row-1">
+                            <!-- Row 1 slots -->
+                        </div>
+                        <div class="player-rack" id="player-rack-row-2">
+                            <!-- Row 2 slots -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DISCARD PILE (Moved here next to the rack) -->
+                <div class="footer-discard-pile">
+                    <div class="center-pile discard-pile" id="main-discard-pile" title="Sıranızı bitirmek için buraya taş atın">
+                        <div class="pile-card empty-discard" id="discard-placeholder">
+                            <span class="label">Iskarta</span>
+                        </div>
+                        <div class="discard-tile-container" id="active-discard-container"></div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: Compact Logs Feed -->
+                <div class="footer-col footer-col-right">
+                    <h4 class="logs-title">Oyun Akışı</h4>
+                    <div class="logs-feed-compact" id="logs-feed">
+                        <p class="log-item system">Oyuna başlamak için kuralları seçip başlayın.</p>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MODAL: GAME START CONFIGURATION -->
+    <div class="modal-overlay active" id="modal-start">
+        <div class="modal-card">
+            <h2 class="outfit-title">Okey 101'e Hoş Geldiniz</h2>
+            <p>Premium grafikler ve akıcı bot yapay zekası ile Okey 101 deneyimi.</p>
+            
+            <div class="form-group">
+                <label>Oyun Tipi</label>
+                <div class="btn-group-toggle" id="game-type-selection">
+                    <button class="btn btn-toggle active" data-type="solo">Tekli Oyun</button>
+                    <button class="btn btn-toggle" data-type="partner">Eşli Oyun</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Oyun Modu</label>
+                <div class="btn-group-toggle" id="game-mode-selection">
+                    <button class="btn btn-toggle active" data-mode="normal">Katlamasız</button>
+                    <button class="btn btn-toggle" data-mode="progressive">Katlamalı</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Oyun Uzunluğu (El Sayısı)</label>
+                <div class="btn-group-toggle" id="round-selection">
+                    <button class="btn btn-toggle" data-rounds="1">1 El</button>
+                    <button class="btn btn-toggle active" data-rounds="3">3 El</button>
+                    <button class="btn btn-toggle" data-rounds="5">5 El</button>
+                    <button class="btn btn-toggle" data-rounds="7">7 El</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Ortaya Konacak Ücret (El Başına Çip)</label>
+                <div class="btn-group-toggle" id="chip-bet-selection">
+                    <button class="btn btn-toggle active" data-bet="100">100 Çip</button>
+                    <button class="btn btn-toggle" data-bet="500">500 Çip</button>
+                    <button class="btn btn-toggle" data-bet="1000">1000 Çip</button>
+                    <button class="btn btn-toggle" data-bet="5000">5000 Çip</button>
+                </div>
+            </div>
+
+            <div class="instructions-card">
+                <h4>Temel Kurallar:</h4>
+                <ul>
+                    <li>El açabilmek için perlerinizin toplam puanı en az <b>101</b> (veya Katlamalı oyunlarda baraj puanı kadar) olmalıdır.</li>
+                    <li>Alternatif olarak <b>5 çift</b> yaparak da çift açabilirsiniz.</li>
+                    <li>Sadece elini açmış olan oyuncular diğer oyuncuların perlerine taş işleyebilir.</li>
+                    <li>Yere <b>işlek atmak</b> (açık perlere uyabilecek bir taş ıskartaya atmak) <b>+101 ceza puanı</b> kazandırır!</li>
+                </ul>
+            </div>
+
+            <button class="btn btn-primary btn-large btn-block" id="btn-start-game">Oyunu Başlat</button>
+        </div>
+    </div>
+
+    <!-- MODAL: ROUND OVER SCOREBOARD -->
+    <div class="modal-overlay" id="modal-round-over">
+        <div class="modal-card">
+            <h2 class="outfit-title" id="round-over-title">El Tamamlandı!</h2>
+            <div class="winner-announcement" id="round-winner-msg">... kazandı!</div>
+            
+            <div class="round-scores-table">
+                <div class="score-table-header">
+                    <span>Oyuncu</span>
+                    <span>El Durumu</span>
+                    <span>İşlek Cezası</span>
+                    <span>Bu El Toplam</span>
+                    <span>Genel Toplam</span>
+                </div>
+                <div id="round-scores-list">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-large btn-block" id="btn-next-round">Sonraki Ele Geç</button>
+        </div>
+    </div>
+
+    <!-- MODAL: GAME OVER / FINAL WINNER -->
+    <div class="modal-overlay" id="modal-game-over">
+        <div class="modal-card winner-card">
+            <div class="trophy-animation">🏆</div>
+            <h2 class="outfit-title">Oyun Bitti!</h2>
+            <div class="winner-announcement" id="game-winner-msg">Tebrikler, Oyunu Kazandınız!</div>
+            
+            <div class="final-scores-list" id="final-scores-list">
+                <!-- Dynamic -->
+            </div>
+
+            <button class="btn btn-primary btn-large btn-block" id="btn-restart-game">Yeni Oyun Başlat</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT ENTRYPOINT -->
+    <script src="js/app.js"></script>
+</body>
+</html>
