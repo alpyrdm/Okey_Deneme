@@ -193,11 +193,20 @@ class MultiplayerManager {
         }
     }
 
+    normalizeRoomCode(code) {
+        if (!code) return '';
+        let clean = code.toUpperCase().trim().replace(/^#/, '');
+        if (!clean.startsWith('OKEY-')) {
+            clean = `OKEY-${clean}`;
+        }
+        return clean;
+    }
+
     async joinRoom(roomCode, playerName = "Oyuncu") {
         await this.loadPeerJsScript();
         return new Promise((resolve) => {
             this.isHost = false;
-            this.roomCode = roomCode.toUpperCase().trim();
+            this.roomCode = this.normalizeRoomCode(roomCode);
             const hostPeerId = `okey101-${this.roomCode}`;
 
             if (typeof Peer === 'undefined') {
