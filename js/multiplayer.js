@@ -140,6 +140,11 @@ class MultiplayerManager {
                     this.onRoomStateChanged(this.seats);
                 }
             }
+        } else if (data.type === 'GAME_STATE_UPDATE') {
+            if (this.onGameStateUpdateReceived) {
+                this.onGameStateUpdateReceived(data);
+            }
+            this.broadcast(data, conn);
         } else if (data.type === 'ACTION') {
             if (this.onActionReceived) {
                 this.onActionReceived(data.action);
@@ -231,6 +236,10 @@ class MultiplayerManager {
                         if (data.type === 'START_GAME') {
                             if (this.onStartGameReceived) {
                                 this.onStartGameReceived(data);
+                            }
+                        } else if (data.type === 'GAME_STATE_UPDATE') {
+                            if (this.onGameStateUpdateReceived) {
+                                this.onGameStateUpdateReceived(data);
                             }
                         } else if (data.type === 'JOIN_ACCEPT') {
                             this.mySeatIndex = data.seatIndex;

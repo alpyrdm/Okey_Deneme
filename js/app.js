@@ -1546,6 +1546,31 @@ class OkeyUI {
         return this.game.players[this.getMySeatIndex()] || this.game.players[0];
     }
 
+    broadcastGameState() {
+        if (!this.multiplayer || !this.multiplayer.roomCode) return;
+
+        const payload = {
+            type: 'GAME_STATE_UPDATE',
+            gameData: {
+                deck: this.game.deck,
+                players: this.game.players,
+                indicatorTile: this.game.indicatorTile,
+                okeyTile: this.game.okeyTile,
+                turn: this.game.turn,
+                dealer: this.game.dealer,
+                round: this.game.round,
+                status: this.game.status,
+                drawnThisTurn: this.game.drawnThisTurn
+            }
+        };
+
+        if (this.multiplayer.isHost) {
+            this.multiplayer.broadcast(payload);
+        } else if (this.multiplayer.hostConnection && this.multiplayer.hostConnection.open) {
+            this.multiplayer.hostConnection.send(payload);
+        }
+    }
+
     getTileHTML(tile) {
         if (tile.isOkey) {
             return `<span class="tile-val" style="color:#d62828;">101</span><div class="tile-cup"><span class="tile-sym" style="color:#d62828;">★</span></div>`;
@@ -1949,10 +1974,21 @@ class OkeyUI {
                 this.game.status = 'playing';
             }
 
+        this.multiplayer.onGameStateUpdateReceived = (data) => {
+            if (!data || !data.gameData) return;
+            const gd = data.gameData;
+            this.game.deck = gd.deck;
+            this.game.players = gd.players;
+            this.game.indicatorTile = gd.indicatorTile;
+            this.game.okeyTile = gd.okeyTile;
+            this.game.turn = gd.turn;
+            this.game.dealer = gd.dealer;
+            this.game.round = gd.round;
+            this.game.status = gd.status;
+            this.game.drawnThisTurn = gd.drawnThisTurn;
+
             this.syncRackFromHand();
             this.renderBoard();
-            this.addLog("Oyun kurucu oyunu başlattı! İyi oyunlar.", "system");
-            try { audio.playShuffle(); } catch (e) {}
         };
 
         const btnStartMultiplayerGame = document.getElementById('btn-start-multiplayer-game');
@@ -2038,45 +2074,50 @@ class OkeyUI {
         });
 
         this.drawPile.addEventListener('click', () => {
-            if (this.game.turn !== 0 || this.game.drawnThisTurn) return;
+            if (!this.isMyTurn() || this.game.drawnThisTurn) return;
             if (this.game.deck.length === 0) {
                 this.game.endRoundNull();
                 this.renderBoard();
                 this.showRoundOver();
                 this.addLog("Deste bitti! El berabere tamamlandı.", "system");
+                this.broadcastGameState();
                 return;
             }
-            const tile = this.game.drawTile(0);
+            const mySeat = this.getMySeatIndex();
+            const tile = this.game.drawTile(mySeat);
             if (tile) {
                 audio.playClack(0.5, 1.1);
                 this.addTileToFirstEmptySlot(tile);
                 this.renderBoard();
                 this.addLog("Desteden bir taş çektiniz.");
+                this.broadcastGameState();
             }
         });
 
         if (this.leftDiscardPile) {
             this.leftDiscardPile.addEventListener('click', () => {
-                if (this.game.turn !== 0 || this.game.drawnThisTurn) return;
+                if (!this.isMyTurn() || this.game.drawnThisTurn) return;
                 
-                const prevPlayerIdx = 3;
+                const mySeat = this.getMySeatIndex();
+                const prevPlayerIdx = (mySeat + 3) % 4;
                 const prevDiscards = this.game.players[prevPlayerIdx].discards;
                 if (prevDiscards.length === 0) return;
                 const potentialTile = prevDiscards[prevDiscards.length - 1];
 
-                const canUse = this.bot.evaluateDiscardUse(0, potentialTile);
+                const canUse = this.bot.evaluateDiscardUse(mySeat, potentialTile);
                 if (!canUse) {
                     audio.playError();
                     this.addLog("Yerdeki taşı sadece elinizi açmak veya taş işlemek için çekebilirsiniz!", "system");
                     return;
                 }
 
-                const tile = this.game.drawFromDiscard(0);
+                const tile = this.game.drawFromDiscard(mySeat);
                 if (tile) {
                     audio.playClack(0.5, 1.1);
                     this.addTileToFirstEmptySlot(tile);
                     this.renderBoard();
                     this.addLog(`Sol oyuncudan ${tile.color}-${tile.number} taşını çektiniz.`);
+                    this.broadcastGameState();
                 }
             });
         }
@@ -2266,6 +2307,7 @@ class OkeyUI {
                     this.renderBoard();
                     audio.playDiscard();
                     this.addLog(`Yere ${tile.color}-${tile.number} attınız.`);
+                    this.broadcastGameState();
                     
                     if (this.game.status === 'round_end') {
                         this.showRoundOver();
