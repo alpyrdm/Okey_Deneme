@@ -1824,109 +1824,11 @@ class OkeyUI {
         });
 
         if (this.btnStartGame) {
-            this.btnStartGame.addEventListener('click', async () => {
-                try {
-                    try { audio.init(); } catch (e) {}
-
-                    const activeRoomBtn = document.querySelector('#room-mode-selection .btn-toggle.active');
-                    const currentRoomMode = activeRoomBtn ? activeRoomBtn.dataset.roomMode : 'local';
-
-                    const activeTypeBtn = document.querySelector('#game-type-selection .btn-toggle.active');
-                    const currentIsPartner = activeTypeBtn ? activeTypeBtn.dataset.type === 'partner' : false;
-
-                    const activeModeBtn = document.querySelector('#game-mode-selection .btn-toggle.active');
-                    const currentIsProgressive = activeModeBtn ? activeModeBtn.dataset.mode === 'progressive' : false;
-
-                    const activeBetBtn = document.querySelector('#chip-bet-selection .btn-toggle.active');
-                    const currentBet = activeBetBtn ? parseInt(activeBetBtn.dataset.bet) : 100;
-
-                    const activeRoundBtn = document.querySelector('#round-selection .btn-toggle.active');
-                    const currentRounds = activeRoundBtn ? parseInt(activeRoundBtn.dataset.rounds) : 3;
-
-                    const inputName = document.getElementById('input-player-name');
-                    const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "Siz";
-                    this.game.players[0].name = playerName;
-
-                    if (currentRoomMode === 'create') {
-                        this.addLog("Oda oluşturuluyor...", "system");
-                        const res = await this.multiplayer.initHost(null, playerName);
-                        const roomBadge = document.getElementById('room-code-badge-view');
-                        const roomText = document.getElementById('room-code-text');
-                        const lobbyDisplay = document.getElementById('lobby-room-code-display');
-
-                        if (roomBadge && roomText) {
-                            roomText.textContent = `Oda: #${res.roomCode}`;
-                            roomBadge.style.display = 'inline-flex';
-                        }
-                        if (lobbyDisplay) {
-                            lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
-                        }
-
-                        if (this.modalStart) this.modalStart.classList.remove('active');
-                        const modalLobby = document.getElementById('modal-lobby');
-                        if (modalLobby) modalLobby.classList.add('active');
-
-                        this.renderLobbySeats(this.multiplayer.seats);
-                        this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
-
-                        this.addLog(`Oda oluşturuldu! Kod: ${res.roomCode}`, "system");
-                        return;
-                    } else if (currentRoomMode === 'join') {
-                        const inputCode = document.getElementById('input-room-code');
-                        const code = inputCode ? inputCode.value.trim() : '';
-                        if (!code) {
-                            alert("Lütfen katılmak istediğiniz oda kodunu girin!");
-                            return;
-                        }
-                        this.addLog("Odaya bağlanılıyor...", "system");
-                        const res = await this.multiplayer.joinRoom(code, playerName);
-                        if (!res.success) {
-                            alert(res.reason);
-                            return;
-                        }
-                        const roomBadge = document.getElementById('room-code-badge-view');
-                        const roomText = document.getElementById('room-code-text');
-                        const lobbyDisplay = document.getElementById('lobby-room-code-display');
-
-                        if (roomBadge && roomText) {
-                            roomText.textContent = `Oda: #${res.roomCode}`;
-                            roomBadge.style.display = 'inline-flex';
-                        }
-                        if (lobbyDisplay) {
-                            lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
-                        }
-
-                        if (this.modalStart) this.modalStart.classList.remove('active');
-                        const modalLobby = document.getElementById('modal-lobby');
-                        if (modalLobby) modalLobby.classList.add('active');
-
-                        this.renderLobbySeats(this.multiplayer.seats);
-                        this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
-
-                        this.addLog(`Odaya başarıyla bağlandınız! Koltuk: ${res.seatIndex + 1}`, "system");
-                        return;
-                    }
-
-                    if (this.modalStart) this.modalStart.classList.remove('active');
-                    this.game.entryBet = currentBet;
-                    this.game.partnerMode = currentIsPartner;
-                    this.game.progressiveMode = currentIsProgressive;
-                    this.game.startNewGame(currentRounds);
-                    this.syncRackFromHand();
-                    this.renderBoard();
-                    this.addLog("Oyun başladı! Taşlar dağıtıldı.", "system");
-                    try { audio.playShuffle(); } catch (e) {}
-                    
-                    if (this.game.turn !== 0) {
-                        this.triggerBotTurns();
-                    }
-                } catch (err) {
-                    console.error("Game start fallback triggered:", err);
-                    if (this.modalStart) this.modalStart.classList.remove('active');
-                    this.game.startNewGame(this.roundCountSelection || 3);
-                    this.syncRackFromHand();
-                    this.renderBoard();
-                }
+            this.btnStartGame.addEventListener('click', () => {
+                try { audio.init(); } catch (e) {}
+                this.startGameDirectly();
+            });
+        }
             });
         }
 
