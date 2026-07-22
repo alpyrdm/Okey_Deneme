@@ -1533,19 +1533,18 @@ class OkeyUI {
 
     getTileHTML(tile) {
         if (tile.isOkey) {
-            return `<span class="tile-val">101</span><div class="tile-cup"><span class="tile-sym">★</span></div>`;
+            return `<span class="tile-val" style="color:#d62828;">101</span><div class="tile-cup"><span class="tile-sym" style="color:#d62828;">★</span></div>`;
         }
         if (tile.isFakeJoker) {
-            return `<span class="tile-val">🍀</span><div class="tile-cup"><span class="tile-sym">🍀</span></div>`;
+            return `<span class="tile-val" style="color:#2b2b2b;">🍀</span><div class="tile-cup"><span class="tile-sym" style="color:#2b2b2b;">🍀</span></div>`;
         }
         const sym = tile.color === 'red' ? '♥' : tile.color === 'blue' ? '♦' : tile.color === 'black' ? '♣' : '♠';
-        return `<span class="tile-val">${tile.number}</span><div class="tile-cup"><span class="tile-sym">${sym}</span></div>`;
+        const hexColor = tile.color === 'red' ? '#d62828' : tile.color === 'blue' ? '#0077b6' : tile.color === 'black' ? '#111111' : '#e67e22';
+        return `<span class="tile-val" style="color:${hexColor};">${tile.number}</span><div class="tile-cup"><span class="tile-sym" style="color:${hexColor};">${sym}</span></div>`;
     }
 
     startGameDirectly() {
         try {
-            if (this.modalStart) this.modalStart.classList.remove('active');
-            
             const activeRoomBtn = document.querySelector('#room-mode-selection .btn-toggle.active');
             const roomMode = activeRoomBtn ? activeRoomBtn.dataset.roomMode : 'local';
 
@@ -1556,10 +1555,28 @@ class OkeyUI {
             }
 
             if (roomMode === 'create') {
+                this.addLog("Oda oluşturuluyor...", "system");
                 this.multiplayer.initHost(null, playerName).then(res => {
+                    const roomBadge = document.getElementById('room-code-badge-view');
+                    const roomText = document.getElementById('room-code-text');
+                    const lobbyDisplay = document.getElementById('lobby-room-code-display');
+
+                    if (roomBadge && roomText) {
+                        roomText.textContent = `Oda: #${res.roomCode}`;
+                        roomBadge.style.display = 'inline-flex';
+                    }
+                    if (lobbyDisplay) {
+                        lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
+                    }
+
+                    if (this.modalStart) this.modalStart.classList.remove('active');
                     const modalLobby = document.getElementById('modal-lobby');
                     if (modalLobby) modalLobby.classList.add('active');
+
                     this.renderLobbySeats(this.multiplayer.seats);
+                    this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
+
+                    this.addLog(`Oda oluşturuldu! Kod: ${res.roomCode}`, "system");
                 }).catch(() => {
                     if (this.modalStart) this.modalStart.classList.remove('active');
                     this.game.startNewGame(3);
@@ -1571,19 +1588,44 @@ class OkeyUI {
                 const inputCode = document.getElementById('input-room-code');
                 const code = inputCode ? inputCode.value.trim() : '';
                 if (code) {
+                    this.addLog("Odaya bağlanılıyor...", "system");
                     this.multiplayer.joinRoom(code, playerName).then(res => {
+                        if (!res.success) {
+                            alert(res.reason || "Odaya bağlanılamadı.");
+                            return;
+                        }
+                        const roomBadge = document.getElementById('room-code-badge-view');
+                        const roomText = document.getElementById('room-code-text');
+                        const lobbyDisplay = document.getElementById('lobby-room-code-display');
+
+                        if (roomBadge && roomText) {
+                            roomText.textContent = `Oda: #${res.roomCode}`;
+                            roomBadge.style.display = 'inline-flex';
+                        }
+                        if (lobbyDisplay) {
+                            lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
+                        }
+
+                        if (this.modalStart) this.modalStart.classList.remove('active');
                         const modalLobby = document.getElementById('modal-lobby');
                         if (modalLobby) modalLobby.classList.add('active');
+
                         this.renderLobbySeats(this.multiplayer.seats);
+                        this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
                     }).catch(() => {
                         if (this.modalStart) this.modalStart.classList.remove('active');
                         this.game.startNewGame(3);
                         this.syncRackFromHand();
                         this.renderBoard();
                     });
+                    return;
+                } else {
+                    alert("Lütfen bir oda kodu girin!");
+                    return;
                 }
-                return;
             }
+
+            if (this.modalStart) this.modalStart.classList.remove('active');
 
             const activeRoundBtn = document.querySelector('#round-selection .btn-toggle.active');
             const rounds = activeRoundBtn ? parseInt(activeRoundBtn.dataset.rounds) : 3;
