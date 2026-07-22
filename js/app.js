@@ -1783,11 +1783,26 @@ class OkeyUI {
                 try {
                     try { audio.init(); } catch (e) {}
 
+                    const activeRoomBtn = document.querySelector('#room-mode-selection .btn-toggle.active');
+                    const currentRoomMode = activeRoomBtn ? activeRoomBtn.dataset.roomMode : 'local';
+
+                    const activeTypeBtn = document.querySelector('#game-type-selection .btn-toggle.active');
+                    const currentIsPartner = activeTypeBtn ? activeTypeBtn.dataset.type === 'partner' : false;
+
+                    const activeModeBtn = document.querySelector('#game-mode-selection .btn-toggle.active');
+                    const currentIsProgressive = activeModeBtn ? activeModeBtn.dataset.mode === 'progressive' : false;
+
+                    const activeBetBtn = document.querySelector('#chip-bet-selection .btn-toggle.active');
+                    const currentBet = activeBetBtn ? parseInt(activeBetBtn.dataset.bet) : 100;
+
+                    const activeRoundBtn = document.querySelector('#round-selection .btn-toggle.active');
+                    const currentRounds = activeRoundBtn ? parseInt(activeRoundBtn.dataset.rounds) : 3;
+
                     const inputName = document.getElementById('input-player-name');
                     const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "Siz";
                     this.game.players[0].name = playerName;
 
-                    if (roomModeSelection === 'create') {
+                    if (currentRoomMode === 'create') {
                         this.addLog("Oda oluşturuluyor...", "system");
                         const res = await this.multiplayer.initHost(null, playerName);
                         const roomBadge = document.getElementById('room-code-badge-view');
@@ -1811,7 +1826,7 @@ class OkeyUI {
 
                         this.addLog(`Oda oluşturuldu! Kod: ${res.roomCode}`, "system");
                         return;
-                    } else if (roomModeSelection === 'join') {
+                    } else if (currentRoomMode === 'join') {
                         const inputCode = document.getElementById('input-room-code');
                         const code = inputCode ? inputCode.value.trim() : '';
                         if (!code) {
@@ -1848,10 +1863,10 @@ class OkeyUI {
                     }
 
                     if (this.modalStart) this.modalStart.classList.remove('active');
-                    this.game.entryBet = betAmountSelection;
-                    this.game.partnerMode = isPartnerSelection;
-                    this.game.progressiveMode = isProgressiveSelection;
-                    this.game.startNewGame(this.roundCountSelection);
+                    this.game.entryBet = currentBet;
+                    this.game.partnerMode = currentIsPartner;
+                    this.game.progressiveMode = currentIsProgressive;
+                    this.game.startNewGame(currentRounds);
                     this.syncRackFromHand();
                     this.renderBoard();
                     this.addLog("Oyun başladı! Taşlar dağıtıldı.", "system");
