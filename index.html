@@ -6,7 +6,7 @@
     <title>Okey 101 - Premium</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -385,10 +385,24 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
-    <script src="js/multiplayer.js" onerror="if(!this.d){this.d=1;this.src='multiplayer.js';}else if(this.d===1){this.d=2;this.src='Multiplayer.js';}else if(this.d===2){this.d=3;this.src='js/Multiplayer.js';}"></script>
-    <script src="js/app.js" onerror="if(!this.d){this.d=1;this.src='app.js';}else if(this.d===1){this.d=2;this.src='App.js';}else if(this.d===2){this.d=3;this.src='js/App.js';}"></script>
     <script>
-        if (typeof startApp === 'function') startApp();
+        (function() {
+            function loadScript(paths, callback) {
+                if (paths.length === 0) return;
+                var src = paths.shift();
+                var s = document.createElement('script');
+                s.src = src;
+                s.onload = function() { if (callback) callback(); };
+                s.onerror = function() { loadScript(paths, callback); };
+                document.head.appendChild(s);
+            }
+
+            loadScript(['js/multiplayer.js', 'multiplayer.js', 'Multiplayer.js', 'js/Multiplayer.js'], function() {
+                loadScript(['js/app.js', 'app.js', 'App.js', 'js/App.js'], function() {
+                    if (typeof startApp === 'function') startApp();
+                });
+            });
+        })();
     </script>
 </body>
 </html>
