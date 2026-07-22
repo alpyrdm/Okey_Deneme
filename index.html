@@ -388,25 +388,18 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
+    <script src="js/app.js?v=2.5.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=2.5.0';}"></script>
     <script>
-        (function() {
-            var v = '?v=' + Date.now();
-            function loadScript(paths, callback) {
-                if (paths.length === 0) return;
-                var src = paths.shift();
-                var s = document.createElement('script');
-                s.src = src + v;
-                s.onload = function() { if (callback) callback(); };
-                s.onerror = function() { loadScript(paths, callback); };
-                document.head.appendChild(s);
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof startApp === 'function') {
+                startApp();
             }
-
-            loadScript(['js/multiplayer.js', 'multiplayer.js', 'Multiplayer.js', 'js/Multiplayer.js'], function() {
-                loadScript(['js/app.js', 'app.js', 'App.js', 'js/App.js'], function() {
-                    if (typeof startApp === 'function') startApp();
-                });
-            });
-        })();
+        });
+        window.addEventListener('load', function() {
+            if (typeof startApp === 'function') {
+                startApp();
+            }
+        });
     </script>
 </body>
 </html>
