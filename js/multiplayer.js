@@ -228,7 +228,11 @@ class MultiplayerManager {
                     });
 
                     this.hostConnection.on('data', (data) => {
-                        if (data.type === 'JOIN_ACCEPT') {
+                        if (data.type === 'START_GAME') {
+                            if (this.onStartGameReceived) {
+                                this.onStartGameReceived(data);
+                            }
+                        } else if (data.type === 'JOIN_ACCEPT') {
                             this.mySeatIndex = data.seatIndex;
                             this.seats = data.seats;
                             resolve({ success: true, roomCode: this.roomCode, seatIndex: this.mySeatIndex });

@@ -1911,11 +1911,41 @@ class OkeyUI {
             });
         }
 
+        this.multiplayer.onStartGameReceived = (data) => {
+            const modalLobby = document.getElementById('modal-lobby');
+            if (modalLobby) modalLobby.classList.remove('active');
+            if (this.modalStart) this.modalStart.classList.remove('active');
+
+            if (data.roomSettings) {
+                this.game.entryBet = data.roomSettings.entryBet;
+                this.game.partnerMode = data.roomSettings.partnerMode;
+                this.game.progressiveMode = data.roomSettings.progressiveMode;
+                this.game.maxRounds = data.roomSettings.maxRounds;
+            }
+
+            if (data.gameData) {
+                this.game.deck = data.gameData.deck;
+                this.game.players = data.gameData.players;
+                this.game.indicatorTile = data.gameData.indicatorTile;
+                this.game.okeyTile = data.gameData.okeyTile;
+                this.game.turn = data.gameData.turn;
+                this.game.dealer = data.gameData.dealer;
+                this.game.round = data.gameData.round;
+                this.game.status = 'playing';
+            }
+
+            this.syncRackFromHand();
+            this.renderBoard();
+            this.addLog("Oyun kurucu oyunu başlattı! İyi oyunlar.", "system");
+            try { audio.playShuffle(); } catch (e) {}
+        };
+
         const btnStartMultiplayerGame = document.getElementById('btn-start-multiplayer-game');
         if (btnStartMultiplayerGame) {
             btnStartMultiplayerGame.addEventListener('click', () => {
                 const modalLobby = document.getElementById('modal-lobby');
                 if (modalLobby) modalLobby.classList.remove('active');
+                if (this.modalStart) this.modalStart.classList.remove('active');
 
                 // Map seats to player names
                 this.multiplayer.seats.forEach((seat, idx) => {
@@ -1923,14 +1953,46 @@ class OkeyUI {
                     this.game.players[idx].isBot = seat.isBot;
                 });
 
-                this.game.entryBet = betAmountSelection;
-                this.game.partnerMode = isPartnerSelection;
-                this.game.progressiveMode = isProgressiveSelection;
-                this.game.startNewGame(this.roundCountSelection);
+                const activeTypeBtn = document.querySelector('#game-type-selection .btn-toggle.active');
+                const isPartner = activeTypeBtn ? activeTypeBtn.dataset.type === 'partner' : false;
+
+                const activeModeBtn = document.querySelector('#game-mode-selection .btn-toggle.active');
+                const isProgressive = activeModeBtn ? activeModeBtn.dataset.mode === 'progressive' : false;
+
+                const activeBetBtn = document.querySelector('#chip-bet-selection .btn-toggle.active');
+                const currentBet = activeBetBtn ? parseInt(activeBetBtn.dataset.bet) : 100;
+
+                const activeRoundBtn = document.querySelector('#round-selection .btn-toggle.active');
+                const currentRounds = activeRoundBtn ? parseInt(activeRoundBtn.dataset.rounds) : 3;
+
+                this.game.entryBet = currentBet;
+                this.game.partnerMode = isPartner;
+                this.game.progressiveMode = isProgressive;
+                this.game.startNewGame(currentRounds);
                 this.syncRackFromHand();
                 this.renderBoard();
                 this.addLog("Masadaki oyuncular yerleşti! Oyun başladı.", "system");
-                audio.playShuffle();
+                try { audio.playShuffle(); } catch (e) {}
+
+                // Broadcast start game to all connected clients!
+                this.multiplayer.broadcast({
+                    type: 'START_GAME',
+                    roomSettings: {
+                        entryBet: this.game.entryBet,
+                        partnerMode: this.game.partnerMode,
+                        progressiveMode: this.game.progressiveMode,
+                        maxRounds: this.game.maxRounds
+                    },
+                    gameData: {
+                        deck: this.game.deck,
+                        players: this.game.players,
+                        indicatorTile: this.game.indicatorTile,
+                        okeyTile: this.game.okeyTile,
+                        turn: this.game.turn,
+                        dealer: this.game.dealer,
+                        round: this.game.round
+                    }
+                });
 
                 if (this.game.turn !== 0 && this.game.players[this.game.turn].isBot) {
                     this.triggerBotTurns();
