@@ -1829,8 +1829,6 @@ class OkeyUI {
                 this.startGameDirectly();
             });
         }
-            });
-        }
 
         const btnLobbyCopy = document.getElementById('btn-lobby-copy-link');
         if (btnLobbyCopy) {
