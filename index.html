@@ -385,8 +385,8 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
-    <script src="multiplayer.js"></script>
-    <script src="app.js"></script>
+    <script src="js/multiplayer.js" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js';}"></script>
+    <script src="js/app.js" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js';}"></script>
     <script>
         if (typeof startApp === 'function') startApp();
     </script>
