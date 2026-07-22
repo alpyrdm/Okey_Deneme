@@ -1531,6 +1531,21 @@ class OkeyUI {
         this.botSpeed = 1200;
     }
 
+    getMySeatIndex() {
+        if (this.multiplayer && this.multiplayer.roomCode && this.multiplayer.mySeatIndex !== undefined) {
+            return this.multiplayer.mySeatIndex;
+        }
+        return 0;
+    }
+
+    isMyTurn() {
+        return this.game.turn === this.getMySeatIndex();
+    }
+
+    getMyPlayer() {
+        return this.game.players[this.getMySeatIndex()] || this.game.players[0];
+    }
+
     getTileHTML(tile) {
         if (tile.isOkey) {
             return `<span class="tile-val" style="color:#d62828;">101</span><div class="tile-cup"><span class="tile-sym" style="color:#d62828;">★</span></div>`;
@@ -2120,7 +2135,7 @@ class OkeyUI {
         }
 
         this.btnOpenMelds.addEventListener('click', () => {
-            if (this.game.turn !== 0) {
+            if (!this.isMyTurn()) {
                 this.addLog("Sıra sizde değil!", "system");
                 audio.playError();
                 return;
@@ -2131,9 +2146,10 @@ class OkeyUI {
                 return;
             }
 
+            const myPlayer = this.getMyPlayer();
             const selectedTiles = [];
             this.selectedTileIds.forEach(id => {
-                const tile = this.game.players[0].hand.find(t => t.id === id);
+                const tile = myPlayer.hand.find(t => t.id === id);
                 if (tile) selectedTiles.push(tile);
             });
 
@@ -2153,7 +2169,8 @@ class OkeyUI {
                 return;
             }
 
-            const result = this.game.openMelds(0, meldsInfo.melds);
+            const mySeat = this.getMySeatIndex();
+            const result = this.game.openMelds(mySeat, meldsInfo.melds);
             
             if (result.success) {
                 audio.playWin();
@@ -2168,7 +2185,7 @@ class OkeyUI {
         });
 
         this.btnOpenPairs.addEventListener('click', () => {
-            if (this.game.turn !== 0) {
+            if (!this.isMyTurn()) {
                 this.addLog("Sıra sizde değil!", "system");
                 audio.playError();
                 return;
@@ -2179,9 +2196,10 @@ class OkeyUI {
                 return;
             }
 
+            const myPlayer = this.getMyPlayer();
             const selectedTiles = [];
             this.selectedTileIds.forEach(id => {
-                const tile = this.game.players[0].hand.find(t => t.id === id);
+                const tile = myPlayer.hand.find(t => t.id === id);
                 if (tile) selectedTiles.push(tile);
             });
 
@@ -2221,7 +2239,7 @@ class OkeyUI {
         });
 
         this.discardPile.addEventListener('dragover', (e) => {
-            if (this.game.turn === 0 && this.game.drawnThisTurn) {
+            if (this.isMyTurn() && this.game.drawnThisTurn) {
                 e.preventDefault();
                 this.discardPile.classList.add('highlight');
             }
@@ -2233,13 +2251,15 @@ class OkeyUI {
 
         this.discardPile.addEventListener('drop', (e) => {
             this.discardPile.classList.remove('highlight');
-            if (this.game.turn !== 0 || !this.game.drawnThisTurn) return;
+            if (!this.isMyTurn() || !this.game.drawnThisTurn) return;
 
+            const mySeat = this.getMySeatIndex();
+            const myPlayer = this.getMyPlayer();
             const tileId = e.dataTransfer.getData('text/plain');
-            const tile = this.game.players[0].hand.find(t => t.id === tileId);
+            const tile = myPlayer.hand.find(t => t.id === tileId);
             
             if (tile) {
-                const success = this.game.discardTile(0, tileId);
+                const success = this.game.discardTile(mySeat, tileId);
                 if (success) {
                     this.removeTileFromRackGrid(tileId);
                     this.checkIslekPenalty();
@@ -2473,6 +2493,12 @@ class OkeyUI {
     triggerBotTurns() {
         if (this.game.status !== 'playing') return;
 
+        const currentP = this.game.players[this.game.turn];
+        if (!currentP || !currentP.isBot || currentP.isHuman) {
+            this.renderBoard();
+            return;
+        }
+
         if (this.game.deck.length === 0 && !this.game.drawnThisTurn) {
             this.game.endRoundNull();
             this.renderBoard();
@@ -2482,7 +2508,8 @@ class OkeyUI {
         }
 
         const nextBotPlay = () => {
-            if (this.game.turn === 0 || this.game.status !== 'playing') {
+            const nowP = this.game.players[this.game.turn];
+            if (this.isMyTurn() || !nowP || !nowP.isBot || nowP.isHuman || this.game.status !== 'playing') {
                 if (this.game.status === 'round_end') {
                     this.showRoundOver();
                 } else {
@@ -3007,17 +3034,17 @@ class OkeyUI {
     }
 
     updateSelectionIndicators() {
+        const myPlayer = this.getMyPlayer();
         const selectedTiles = [];
         this.selectedTileIds.forEach(id => {
-            const tile = this.game.players[0].hand.find(t => t.id === id);
+            const tile = myPlayer.hand.find(t => t.id === id);
             if (tile) selectedTiles.push(tile);
         });
 
         const selectedBadge = document.getElementById('selected-total-badge');
         const dynamicBadge = document.getElementById('dynamic-status-badge');
-        const player0 = this.game.players[0];
-        const hasOpenedBefore = player0.openedMelds.length > 0 || player0.openedInPairs;
-        const isMyTurn = (this.game.turn === 0);
+        const hasOpenedBefore = myPlayer.openedMelds.length > 0 || myPlayer.openedInPairs;
+        const isMyTurn = this.isMyTurn();
         const canActThisTurn = isMyTurn && this.game.drawnThisTurn;
 
         if (selectedTiles.length > 0) {
