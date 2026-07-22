@@ -1747,12 +1747,17 @@ class OkeyUI {
         const roomButtons = document.querySelectorAll('#room-mode-selection .btn-toggle');
         const joinCodeGroup = document.getElementById('join-code-group');
         roomButtons.forEach(btn => {
+        const roomSettingsGroup = document.getElementById('room-settings-group');
+        roomButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 roomButtons.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 roomModeSelection = btn.dataset.roomMode;
                 if (joinCodeGroup) {
                     joinCodeGroup.style.display = (roomModeSelection === 'join') ? 'block' : 'none';
+                }
+                if (roomSettingsGroup) {
+                    roomSettingsGroup.style.display = (roomModeSelection === 'join') ? 'none' : 'block';
                 }
                 audio.playClack(0.4, 1.2);
             });

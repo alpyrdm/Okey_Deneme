@@ -258,9 +258,9 @@
             <div class="form-group">
                 <label>Ağ / Oda Modu</label>
                 <div class="btn-group-toggle" id="room-mode-selection">
-                    <button type="button" class="btn btn-toggle active" data-room-mode="local" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active'); document.getElementById('join-code-group').style.display='none'; document.getElementById('room-settings-group').style.display='block';">🤖 Botlarla Oyna</button>
-                    <button type="button" class="btn btn-toggle" data-room-mode="create" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active'); document.getElementById('join-code-group').style.display='none'; document.getElementById('room-settings-group').style.display='block';">🏠 Oda Oluştur (Arkadaşınla)</button>
-                    <button type="button" class="btn btn-toggle" data-room-mode="join" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active'); document.getElementById('join-code-group').style.display='block'; document.getElementById('room-settings-group').style.display='none';">🔗 Odaya Katıl</button>
+                    <button type="button" class="btn btn-toggle active" data-room-mode="local">🤖 Botlarla Oyna</button>
+                    <button type="button" class="btn btn-toggle" data-room-mode="create">🏠 Oda Oluştur (Arkadaşınla)</button>
+                    <button type="button" class="btn btn-toggle" data-room-mode="join">🔗 Odaya Katıl</button>
                 </div>
             </div>
 
@@ -273,36 +273,36 @@
                 <div class="form-group">
                     <label>Oyun Tipi</label>
                     <div class="btn-group-toggle" id="game-type-selection">
-                        <button type="button" class="btn btn-toggle active" data-type="solo" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">Tekli Oyun</button>
-                        <button type="button" class="btn btn-toggle" data-type="partner" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">Eşli Oyun</button>
+                        <button type="button" class="btn btn-toggle active" data-type="solo">Tekli Oyun</button>
+                        <button type="button" class="btn btn-toggle" data-type="partner">Eşli Oyun</button>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Oyun Modu</label>
                     <div class="btn-group-toggle" id="game-mode-selection">
-                        <button type="button" class="btn btn-toggle active" data-mode="normal" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">Katlamasız</button>
-                        <button type="button" class="btn btn-toggle" data-mode="progressive" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">Katlamalı</button>
+                        <button type="button" class="btn btn-toggle active" data-mode="normal">Katlamasız</button>
+                        <button type="button" class="btn btn-toggle" data-mode="progressive">Katlamalı</button>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Oyun Uzunluğu (El Sayısı)</label>
                     <div class="btn-group-toggle" id="round-selection">
-                        <button type="button" class="btn btn-toggle" data-rounds="1" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">1 El</button>
-                        <button type="button" class="btn btn-toggle active" data-rounds="3" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">3 El</button>
-                        <button type="button" class="btn btn-toggle" data-rounds="5" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">5 El</button>
-                        <button type="button" class="btn btn-toggle" data-rounds="7" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">7 El</button>
+                        <button type="button" class="btn btn-toggle" data-rounds="1">1 El</button>
+                        <button type="button" class="btn btn-toggle active" data-rounds="3">3 El</button>
+                        <button type="button" class="btn btn-toggle" data-rounds="5">5 El</button>
+                        <button type="button" class="btn btn-toggle" data-rounds="7">7 El</button>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Ortaya Konacak Ücret (El Başına Çip)</label>
                     <div class="btn-group-toggle" id="chip-bet-selection">
-                        <button type="button" class="btn btn-toggle active" data-bet="100" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">100 Çip</button>
-                        <button type="button" class="btn btn-toggle" data-bet="500" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">500 Çip</button>
-                        <button type="button" class="btn btn-toggle" data-bet="1000" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">1000 Çip</button>
-                        <button type="button" class="btn btn-toggle" data-bet="5000" onclick="this.parentNode.querySelectorAll('.btn-toggle').forEach(b=>b.classList.remove('active')); this.classList.add('active');">5000 Çip</button>
+                        <button type="button" class="btn btn-toggle active" data-bet="100">100 Çip</button>
+                        <button type="button" class="btn btn-toggle" data-bet="500">500 Çip</button>
+                        <button type="button" class="btn btn-toggle" data-bet="1000">1000 Çip</button>
+                        <button type="button" class="btn btn-toggle" data-bet="5000">5000 Çip</button>
                     </div>
                 </div>
             </div>
@@ -317,7 +317,7 @@
                 </ul>
             </div>
 
-            <button type="button" class="btn btn-primary btn-large btn-block" id="btn-start-game" onclick="if(window.ui && window.ui.startGameDirectly) { window.ui.startGameDirectly(); } else { const m = document.getElementById('modal-start'); if(m) m.classList.remove('active'); }">Oyunu Başlat</button>
+            <button type="button" class="btn btn-primary btn-large btn-block" id="btn-start-game">Oyunu Başlat</button>
         </div>
     </div>
 
