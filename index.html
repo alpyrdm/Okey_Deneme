@@ -53,6 +53,10 @@
             </div>
 
             <div class="nav-right">
+                <div class="room-code-badge" id="room-code-badge-view" style="display: none; align-items: center; gap: 8px; background: rgba(33, 150, 243, 0.15); border: 1.5px solid rgba(33, 150, 243, 0.4); border-radius: 8px; padding: 5px 10px; font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700; color: #90caf9; margin-right: 10px;">
+                    <span id="room-code-text">Oda: #OKEY-----</span>
+                    <button class="btn btn-sm btn-secondary" id="btn-copy-room-link" style="padding: 2px 6px; font-size: 11px;">📋 Linki Kopyala</button>
+                </div>
                 <div class="user-chips-badge" id="user-chips-badge-view" style="display: flex; align-items: center; gap: 6px; background: rgba(0, 230, 118, 0.15); border: 1.5px solid rgba(0, 230, 118, 0.35); border-radius: 8px; padding: 6px 12px; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #a5d6a7; margin-right: 12px; box-shadow: 0 4px 10px rgba(0, 230, 118, 0.15);">
                     <span style="font-size: 15px;">💰</span>
                     <span id="header-user-chips">5000 Çip</span>
@@ -166,17 +170,24 @@
                     </button>
                 </div>
 
-                <!-- DRAW PILE (Moved here next to the rack) -->
+                <!-- LEFT DRAW PILES (Çek + Bana Atılan Taş) -->
                 <div class="footer-deck-pile">
-                    <div class="center-pile draw-pile" id="main-draw-pile" title="Desteden taş çekmek için tıklayın">
+                    <div class="center-pile draw-pile" id="main-draw-pile" title="Desteden kapalı taş çekmek için tıklayın">
                         <div class="pile-card face-down">
-                            <span class="card-icon">🀫</span>
+                            <span class="card-icon" style="font-size: 16px;">🀫</span>
                             <span class="label">Çek</span>
                         </div>
                     </div>
+                    <div class="center-pile discard-draw-pile" id="left-player-discard-pile" title="Sol oyuncunun size attığı son taşı çekmek için tıklayın">
+                        <div class="pile-card empty-discard" id="left-discard-placeholder">
+                            <span class="card-icon" style="font-size: 13px; color: #f59e0b;">↙️</span>
+                            <span class="label" style="font-size: 8px; color: #fcd34d; font-weight: 700; text-align: center;">Bana Atılan</span>
+                        </div>
+                        <div class="discard-tile-container" id="left-discard-tile-container"></div>
+                    </div>
                 </div>
 
-                <!-- CENTER COLUMN: Rack, Dynamic Status Badge, Open Buttons -->
+                <!-- CENTER COLUMN: Rack, Dynamic Status Badge, Open & İşlek Buttons -->
                 <div class="footer-col footer-col-center">
                     <div class="action-toolbar">
                         <div class="rack-stats">
@@ -194,6 +205,9 @@
                             <button class="btn btn-primary btn-sm" id="btn-open-pairs" disabled>
                                 <span>Çift Aç (5 Çift)</span>
                             </button>
+                            <button class="btn btn-success btn-sm glow-btn" id="btn-process-tile" disabled title="Seçili taşı masadaki açılmış perlere işler">
+                                <span>İşlek İşle</span>
+                            </button>
                         </div>
                     </div>
 
@@ -208,10 +222,11 @@
                     </div>
                 </div>
 
-                <!-- DISCARD PILE (Moved here next to the rack) -->
+                <!-- RIGHT DISCARD PILE (Iskarta) -->
                 <div class="footer-discard-pile">
                     <div class="center-pile discard-pile" id="main-discard-pile" title="Sıranızı bitirmek için buraya taş atın">
                         <div class="pile-card empty-discard" id="discard-placeholder">
+                            <span class="card-icon" style="font-size: 13px; color: #ef4444;">↘️</span>
                             <span class="label">Iskarta</span>
                         </div>
                         <div class="discard-tile-container" id="active-discard-container"></div>
@@ -233,8 +248,27 @@
     <div class="modal-overlay active" id="modal-start">
         <div class="modal-card">
             <h2 class="outfit-title">Okey 101'e Hoş Geldiniz</h2>
-            <p>Premium grafikler ve akıcı bot yapay zekası ile Okey 101 deneyimi.</p>
+            <p>Premium grafikler ve multiplayer oda altyapısı ile Okey 101 deneyimi.</p>
             
+            <div class="form-group">
+                <label>Oyuncu Adınız</label>
+                <input type="text" id="input-player-name" class="setting-input" placeholder="Adınızı girin (Örn: Ahmet)" value="Siz" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: #fff; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600;">
+            </div>
+
+            <div class="form-group">
+                <label>Ağ / Oda Modu</label>
+                <div class="btn-group-toggle" id="room-mode-selection">
+                    <button class="btn btn-toggle active" data-room-mode="local">🤖 Botlarla Oyna</button>
+                    <button class="btn btn-toggle" data-room-mode="create">🏠 Oda Oluştur (Arkadaşınla)</button>
+                    <button class="btn btn-toggle" data-room-mode="join">🔗 Odaya Katıl</button>
+                </div>
+            </div>
+
+            <div class="form-group" id="join-code-group" style="display: none;">
+                <label>Oda Kodu</label>
+                <input type="text" id="input-room-code" class="setting-input" placeholder="Örn: OKEY-A101" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: #fff; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700; text-transform: uppercase;">
+            </div>
+
             <div class="form-group">
                 <label>Oyun Tipi</label>
                 <div class="btn-group-toggle" id="game-type-selection">
@@ -285,6 +319,31 @@
         </div>
     </div>
 
+    <!-- MODAL: MULTIPLAYER LOBBY & TEAM SELECTION -->
+    <div class="modal-overlay" id="modal-lobby">
+        <div class="modal-card" style="max-width: 650px;">
+            <h2 class="outfit-title">Oda Lobi & Eş Seçimi</h2>
+            <p>Arkadaşlarınız katıldıkça koltuk seçimi yapabilir ve eşinizi belirleyebilirsiniz.</p>
+            
+            <div class="room-share-box" style="display: flex; align-items: center; justify-content: space-between; background: rgba(33, 150, 243, 0.12); border: 1.5px dashed rgba(33, 150, 243, 0.4); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px;">
+                <div>
+                    <span style="font-size: 12px; color: #90caf9; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Oda Davet Linki:</span>
+                    <h4 id="lobby-room-code-display" style="font-family: 'Outfit', sans-serif; font-size: 18px; margin: 2px 0 0 0; color: #fff;">Oda: #OKEY-----</h4>
+                </div>
+                <button class="btn btn-secondary" id="btn-lobby-copy-link" style="padding: 8px 16px;">📋 Davet Linkini Kopyala</button>
+            </div>
+
+            <div class="seats-grid" id="lobby-seats-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px;">
+                <!-- 4 Seat Cards dynamically rendered -->
+            </div>
+
+            <div class="modal-actions" style="display: flex; gap: 12px;">
+                <button class="btn btn-secondary btn-block" id="btn-leave-lobby">Lobiden Çık</button>
+                <button class="btn btn-primary btn-large btn-block" id="btn-start-multiplayer-game">Masayı Başlat (Oyuna Gir)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: ROUND OVER SCOREBOARD -->
     <div class="modal-overlay" id="modal-round-over">
         <div class="modal-card">
@@ -324,6 +383,8 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="js/multiplayer.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

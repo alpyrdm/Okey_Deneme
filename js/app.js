@@ -266,9 +266,12 @@ class GameState {
     }
 
     shuffleDeck() {
-        for (let i = this.deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
+        // Run 5 passes of Fisher-Yates shuffle for maximum entropy and 100% fair random dealing
+        for (let pass = 0; pass < 5; pass++) {
+            for (let i = this.deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
+            }
         }
     }
 
@@ -280,6 +283,10 @@ class GameState {
 
         this.indicatorTile = this.deck[indicatorIdx];
         
+        // Move indicator tile to the bottom of the deck (index 0) so it remains in the 106-tile deck
+        this.deck.splice(indicatorIdx, 1);
+        this.deck.unshift(this.indicatorTile);
+
         const nextNum = this.indicatorTile.number === 13 ? 1 : this.indicatorTile.number + 1;
         
         this.okeyTile = {
@@ -341,15 +348,14 @@ class GameState {
         this.dealer = (this.round - 1) % 4;
         this.turn = this.dealer;
 
-        for (let i = 0; i < 22; i++) {
-            this.players[this.dealer].hand.push(this.deck.pop());
-        }
-        for (let p = 0; p < 4; p++) {
-            if (p === this.dealer) continue;
-            for (let i = 0; i < 21; i++) {
+        // Deal tiles round-robin (1 tile at a time to each player around the table) for true 100% fair random distribution
+        for (let round = 0; round < 21; round++) {
+            for (let p = 0; p < 4; p++) {
                 this.players[p].hand.push(this.deck.pop());
             }
         }
+        // Dealer gets the 22nd tile
+        this.players[this.dealer].hand.push(this.deck.pop());
 
         // The dealer starts with 22 tiles and does not draw on the first turn
         this.drawnThisTurn = true;
@@ -489,6 +495,11 @@ class GameState {
         this.discardTakenThisTurn = false;
         this.lastDiscardedTile = null;
 
+        if (this.deck.length === 0) {
+            this.endRoundNull();
+            return true;
+        }
+
         return true;
     }
 
@@ -582,8 +593,13 @@ class GameState {
         return sum;
     }
 
-    validatePairs(pairs) {
-        if (pairs.length < 5) return { valid: false, reason: "Çift açmak için en az 5 çift gereklidir." };
+    validatePairs(pairs, isAlreadyOpenedInPairs = false) {
+        if (!isAlreadyOpenedInPairs && pairs.length < 5) {
+            return { valid: false, reason: "Çift açmak için en az 5 çift gereklidir." };
+        }
+        if (pairs.length < 1) {
+            return { valid: false, reason: "En az 1 çift seçilmelidir." };
+        }
         
         for (const pair of pairs) {
             if (pair.length !== 2) return { valid: false, reason: "Her çift tam olarak 2 taştan oluşmalıdır." };
@@ -616,6 +632,16 @@ class GameState {
             return { success: false, reason: "Çift açtıktan sonra per açamazsınız!" };
         }
 
+        if (player.drewDiscardToOpen && player.drawnDiscardTile) {
+            const allOpenedTiles = melds.flat();
+            const usesDrawnTile = allOpenedTiles.some(t => t.id === player.drawnDiscardTile.id);
+            if (!usesDrawnTile) {
+                return { success: false, reason: "Yerden çektiğiniz taş açtığınız perlerin içinde yer almalıdır!" };
+            }
+        }
+
+        const hasOpenedBefore = player.openedMelds.length > 0 || player.openedInPairs;
+
         let totalSum = 0;
         for (const meld of melds) {
             const validation = this.validateMeld(meld);
@@ -625,15 +651,10 @@ class GameState {
             totalSum += this.calculateMeldPoints(meld);
         }
 
-        const partnerIdx = (playerIdx + 2) % 4;
-        const partner = this.players[partnerIdx];
-        const partnerOpenedNormal = this.partnerMode && partner.openedMelds.length > 0 && !partner.openedInPairs;
-
         if (!hasOpenedBefore) {
-            const required = (this.partnerMode && partnerOpenedNormal) ? 101 : (this.progressiveMode ? this.currentOpenThreshold : 101);
+            const required = this.getRequiredOpenThreshold(playerIdx);
             if (totalSum < required) {
-                const partnerMsg = (this.partnerMode && partnerOpenedNormal) ? " (Eşiniz açtığı için baraj 101'dir)" : "";
-                return { success: false, reason: `Açmak için perlerin toplamı en az ${required} olmalıdır.${partnerMsg} Şu anki toplam: ${totalSum}` };
+                return { success: false, reason: `Açmak için perlerin toplamı en az ${required} olmalıdır. Şu anki toplam: ${totalSum}` };
             }
         }
 
@@ -652,11 +673,38 @@ class GameState {
             player.initialOpeningSum = totalSum;
         }
 
-        if (!hasOpenedBefore && !partnerOpenedNormal && this.progressiveMode) {
+        if (!hasOpenedBefore && this.progressiveMode) {
             this.currentOpenThreshold = Math.max(this.currentOpenThreshold, totalSum + 1);
         }
 
         return { success: true, sum: totalSum };
+    }
+
+    getRequiredOpenThreshold(playerIdx) {
+        if (!this.progressiveMode) {
+            return 101;
+        }
+
+        const partnerIdx = (playerIdx + 2) % 4;
+        let maxOpponentScore = 0;
+
+        for (let p = 0; p < 4; p++) {
+            if (p === playerIdx) continue;
+            if (this.partnerMode && p === partnerIdx) continue; // Partner's score is ignored for progressive limit!
+
+            const player = this.players[p];
+            if (player.openedMelds.length > 0 && !player.openedInPairs) {
+                if (player.initialOpeningSum > maxOpponentScore) {
+                    maxOpponentScore = player.initialOpeningSum;
+                }
+            }
+        }
+
+        if (maxOpponentScore > 0) {
+            return maxOpponentScore + 1;
+        }
+
+        return 101;
     }
 
     openPairs(playerIdx, pairs) {
@@ -664,11 +712,20 @@ class GameState {
         if (!this.drawnThisTurn) return { success: false, reason: "Önce yerden veya desteden taş çekmelisiniz." };
 
         const player = this.players[playerIdx];
-        if (player.openedMelds.length > 0) {
+        if (player.openedMelds.length > 0 && !player.openedInPairs) {
             return { success: false, reason: "Zaten seri açtınız, çift açamazsınız." };
         }
 
-        const validation = this.validatePairs(pairs);
+        if (player.drewDiscardToOpen && player.drawnDiscardTile) {
+            const allOpenedTiles = pairs.flat();
+            const usesDrawnTile = allOpenedTiles.some(t => t.id === player.drawnDiscardTile.id);
+            if (!usesDrawnTile) {
+                return { success: false, reason: "Yerden çektiğiniz taş açtığınız çiftlerin içinde yer almalıdır!" };
+            }
+        }
+
+        const isAlreadyOpenedInPairs = player.openedInPairs;
+        const validation = this.validatePairs(pairs, isAlreadyOpenedInPairs);
         if (!validation.valid) {
             return { success: false, reason: validation.reason };
         }
@@ -729,6 +786,18 @@ class GameState {
         const targetMeld = targetPlayer.openedMelds[meldIdx];
         if (!targetMeld) return { success: false, reason: "Hedef per bulunamadı." };
 
+        // Prohibit Okey swapping with +101 penalty (Kendi taşınla Okey almak yasak + 101 Ceza)
+        for (let i = 0; i < targetMeld.length; i++) {
+            if (this.isWildcard(targetMeld[i])) {
+                const rep = this.getOkeyRepresentationInMeld(targetMeld, i);
+                if (rep && !tile.isFakeJoker && !tile.isOkey && tile.color === rep.color && tile.number === rep.number) {
+                    player.score += 101;
+                    return { success: false, reason: "Açılmış perdeki Okey'i değiştirmek yasaktır! Kural ihlali: +101 Ceza Puanı eklendi." };
+                }
+            }
+        }
+
+        // Check for appending/prepending to start or end of meld
         const testMeld = [...targetMeld];
         if (appendToStart) {
             testMeld.unshift(tile);
@@ -1019,19 +1088,11 @@ class OkeyBot {
         const possibleMeldsInfo = this.findAllPossibleMelds(bot.hand);
         
         if (!hasOpened) {
-            const partnerIdx = (botIdx + 2) % 4;
-            const partner = this.game.players[partnerIdx];
-            const partnerOpenedNormal = this.game.partnerMode && partner.openedMelds.length > 0 && !partner.openedInPairs;
-
-            const required = partnerOpenedNormal ? 101 : (this.game.progressiveMode ? this.game.currentOpenThreshold : 101);
+            const required = this.game.getRequiredOpenThreshold(botIdx);
             if (possibleMeldsInfo.totalSum >= required) {
                 const openResult = this.game.openMelds(botIdx, possibleMeldsInfo.melds);
                 if (openResult.success) {
-                    if (partnerOpenedNormal) {
-                        log.push(`🤝 ${bot.name}, ortağı ${partnerIdx === 0 ? "Siz" : partner.name} açtığı için 101 barajıyla elini açtı! Puan: ${openResult.sum}`);
-                    } else {
-                        log.push(`${bot.name} elini açtı! Toplam puan: ${openResult.sum}`);
-                    }
+                    log.push(`${bot.name} elini açtı! Toplam puan: ${openResult.sum}`);
                 }
             }
         } else {
@@ -1146,7 +1207,7 @@ class OkeyBot {
         if (bot.openedMelds.length === 0 && !bot.openedInPairs) {
             const meldsInfo = this.findAllPossibleMelds(tempHand);
             const usesDiscard = meldsInfo.melds.some(meld => meld.some(t => t.id === tile.id));
-            const required = this.game.progressiveMode ? this.game.currentOpenThreshold : 101;
+            const required = this.game.getRequiredOpenThreshold(botIdx);
             return (meldsInfo.totalSum >= required) && usesDiscard;
         }
 
@@ -1406,14 +1467,20 @@ class OkeyUI {
         this.logsFeed = document.getElementById('logs-feed');
         
         this.drawPile = document.getElementById('main-draw-pile');
+        this.leftDiscardPile = document.getElementById('left-player-discard-pile');
+        this.leftDiscardContainer = document.getElementById('left-discard-tile-container');
+        this.leftDiscardPlaceholder = document.getElementById('left-discard-placeholder');
         this.discardPile = document.getElementById('main-discard-pile');
         this.activeDiscardContainer = document.getElementById('active-discard-container');
         this.discardPlaceholder = document.getElementById('discard-placeholder');
         this.selectedSumIndicator = document.getElementById('selected-sum-indicator');
+        this.btnProcessTile = document.getElementById('btn-process-tile');
         
+        this.multiplayer = new window.MultiplayerManager();
+
         this.rackGrid = [
-            Array(20).fill(null),
-            Array(20).fill(null)
+            Array(24).fill(null),
+            Array(24).fill(null)
         ];
         
         this.selectedTileIds = new Set();
@@ -1439,10 +1506,32 @@ class OkeyUI {
         this.bindEvents();
         this.renderScoreboard();
         this.checkDailyReward();
+        this.checkUrlRoomJoin();
         
         setInterval(() => {
             this.checkDailyReward();
         }, 30000);
+    }
+
+    checkUrlRoomJoin() {
+        const params = new URLSearchParams(window.location.search);
+        let roomCode = params.get('room');
+        if (!roomCode && window.location.hash) {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            roomCode = hashParams.get('room');
+        }
+        if (roomCode) {
+            const roomButtons = document.querySelectorAll('#room-mode-selection .btn-toggle');
+            roomButtons.forEach(b => b.classList.remove('active'));
+            const joinBtn = document.querySelector('#room-mode-selection [data-room-mode="join"]');
+            if (joinBtn) joinBtn.classList.add('active');
+            
+            const joinGroup = document.getElementById('join-code-group');
+            if (joinGroup) joinGroup.style.display = 'block';
+            
+            const inputCode = document.getElementById('input-room-code');
+            if (inputCode) inputCode.value = roomCode.toUpperCase();
+        }
     }
 
     setupRackSlots() {
@@ -1453,7 +1542,7 @@ class OkeyUI {
 
         rows.forEach((rowEl, rIdx) => {
             rowEl.innerHTML = '';
-            for (let cIdx = 0; cIdx < 20; cIdx++) {
+            for (let cIdx = 0; cIdx < 24; cIdx++) {
                 const slot = document.createElement('div');
                 slot.className = 'rack-slot';
                 slot.dataset.row = rIdx;
@@ -1469,6 +1558,38 @@ class OkeyUI {
     }
 
     bindEvents() {
+        let roomModeSelection = 'local';
+        const roomButtons = document.querySelectorAll('#room-mode-selection .btn-toggle');
+        const joinCodeGroup = document.getElementById('join-code-group');
+        roomButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                roomButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                roomModeSelection = btn.dataset.roomMode;
+                if (joinCodeGroup) {
+                    joinCodeGroup.style.display = (roomModeSelection === 'join') ? 'block' : 'none';
+                }
+                audio.playClack(0.4, 1.2);
+            });
+        });
+
+        const btnCopyLink = document.getElementById('btn-copy-room-link');
+        if (btnCopyLink) {
+            btnCopyLink.addEventListener('click', () => {
+                const link = this.multiplayer.getShareableLink();
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(link).then(() => {
+                        this.addLog("Oda davet linki panoya kopyalandı!", "system");
+                        audio.playClack(0.5, 1.3);
+                    }).catch(() => {
+                        prompt("Oda davet linkiniz:", link);
+                    });
+                } else {
+                    prompt("Oda davet linkiniz:", link);
+                }
+            });
+        }
+
         const roundButtons = document.querySelectorAll('#round-selection .btn-toggle');
         roundButtons.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1512,9 +1633,74 @@ class OkeyUI {
             });
         });
 
-        this.btnStartGame.addEventListener('click', () => {
-            this.modalStart.classList.remove('active');
+        this.btnStartGame.addEventListener('click', async () => {
             audio.init();
+
+            const inputName = document.getElementById('input-player-name');
+            const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "Siz";
+            this.game.players[0].name = playerName;
+
+            if (roomModeSelection === 'create') {
+                this.addLog("Oda oluşturuluyor...", "system");
+                const res = await this.multiplayer.initHost(null, playerName);
+                const roomBadge = document.getElementById('room-code-badge-view');
+                const roomText = document.getElementById('room-code-text');
+                const lobbyDisplay = document.getElementById('lobby-room-code-display');
+
+                if (roomBadge && roomText) {
+                    roomText.textContent = `Oda: #${res.roomCode}`;
+                    roomBadge.style.display = 'inline-flex';
+                }
+                if (lobbyDisplay) {
+                    lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
+                }
+
+                this.modalStart.classList.remove('active');
+                const modalLobby = document.getElementById('modal-lobby');
+                if (modalLobby) modalLobby.classList.add('active');
+
+                this.renderLobbySeats(this.multiplayer.seats);
+                this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
+
+                this.addLog(`Oda oluşturuldu! Kod: ${res.roomCode}`, "system");
+                return;
+            } else if (roomModeSelection === 'join') {
+                const inputCode = document.getElementById('input-room-code');
+                const code = inputCode ? inputCode.value.trim() : '';
+                if (!code) {
+                    alert("Lütfen katılmak istediğiniz oda kodunu girin!");
+                    return;
+                }
+                this.addLog("Odaya bağlanılıyor...", "system");
+                const res = await this.multiplayer.joinRoom(code, playerName);
+                if (!res.success) {
+                    alert(res.reason);
+                    return;
+                }
+                const roomBadge = document.getElementById('room-code-badge-view');
+                const roomText = document.getElementById('room-code-text');
+                const lobbyDisplay = document.getElementById('lobby-room-code-display');
+
+                if (roomBadge && roomText) {
+                    roomText.textContent = `Oda: #${res.roomCode}`;
+                    roomBadge.style.display = 'inline-flex';
+                }
+                if (lobbyDisplay) {
+                    lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
+                }
+
+                this.modalStart.classList.remove('active');
+                const modalLobby = document.getElementById('modal-lobby');
+                if (modalLobby) modalLobby.classList.add('active');
+
+                this.renderLobbySeats(this.multiplayer.seats);
+                this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
+
+                this.addLog(`Odaya başarıyla bağlandınız! Koltuk: ${res.seatIndex + 1}`, "system");
+                return;
+            }
+
+            this.modalStart.classList.remove('active');
             this.game.entryBet = betAmountSelection;
             this.game.partnerMode = isPartnerSelection;
             this.game.progressiveMode = isProgressiveSelection;
@@ -1528,6 +1714,59 @@ class OkeyUI {
                 this.triggerBotTurns();
             }
         });
+
+        const btnLobbyCopy = document.getElementById('btn-lobby-copy-link');
+        if (btnLobbyCopy) {
+            btnLobbyCopy.addEventListener('click', () => {
+                const link = this.multiplayer.getShareableLink();
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(link).then(() => {
+                        this.addLog("Oda davet linki panoya kopyalandı!", "system");
+                        audio.playClack(0.5, 1.3);
+                    }).catch(() => {
+                        prompt("Oda davet linkiniz:", link);
+                    });
+                } else {
+                    prompt("Oda davet linkiniz:", link);
+                }
+            });
+        }
+
+        const btnLeaveLobby = document.getElementById('btn-leave-lobby');
+        if (btnLeaveLobby) {
+            btnLeaveLobby.addEventListener('click', () => {
+                const modalLobby = document.getElementById('modal-lobby');
+                if (modalLobby) modalLobby.classList.remove('active');
+                this.modalStart.classList.add('active');
+            });
+        }
+
+        const btnStartMultiplayerGame = document.getElementById('btn-start-multiplayer-game');
+        if (btnStartMultiplayerGame) {
+            btnStartMultiplayerGame.addEventListener('click', () => {
+                const modalLobby = document.getElementById('modal-lobby');
+                if (modalLobby) modalLobby.classList.remove('active');
+
+                // Map seats to player names
+                this.multiplayer.seats.forEach((seat, idx) => {
+                    this.game.players[idx].name = seat.name;
+                    this.game.players[idx].isBot = seat.isBot;
+                });
+
+                this.game.entryBet = betAmountSelection;
+                this.game.partnerMode = isPartnerSelection;
+                this.game.progressiveMode = isProgressiveSelection;
+                this.game.startNewGame(this.roundCountSelection);
+                this.syncRackFromHand();
+                this.renderBoard();
+                this.addLog("Masadaki oyuncular yerleşti! Oyun başladı.", "system");
+                audio.playShuffle();
+
+                if (this.game.turn !== 0 && this.game.players[this.game.turn].isBot) {
+                    this.triggerBotTurns();
+                }
+            });
+        }
 
         this.btnNextRound.addEventListener('click', () => {
             this.modalRoundOver.classList.remove('active');
@@ -1553,6 +1792,13 @@ class OkeyUI {
 
         this.drawPile.addEventListener('click', () => {
             if (this.game.turn !== 0 || this.game.drawnThisTurn) return;
+            if (this.game.deck.length === 0) {
+                this.game.endRoundNull();
+                this.renderBoard();
+                this.showRoundOver();
+                this.addLog("Deste bitti! El berabere tamamlandı.", "system");
+                return;
+            }
             const tile = this.game.drawTile(0);
             if (tile) {
                 audio.playClack(0.5, 1.1);
@@ -1562,27 +1808,59 @@ class OkeyUI {
             }
         });
 
-        this.discardPile.addEventListener('click', () => {
-            if (this.game.turn !== 0 || this.game.drawnThisTurn) return;
-            
-            const prevPlayerIdx = 3;
-            const prevDiscards = this.game.players[prevPlayerIdx].discards;
-            if (prevDiscards.length === 0) return;
-            const potentialTile = prevDiscards[prevDiscards.length - 1];
+        if (this.leftDiscardPile) {
+            this.leftDiscardPile.addEventListener('click', () => {
+                if (this.game.turn !== 0 || this.game.drawnThisTurn) return;
+                
+                const prevPlayerIdx = 3;
+                const prevDiscards = this.game.players[prevPlayerIdx].discards;
+                if (prevDiscards.length === 0) return;
+                const potentialTile = prevDiscards[prevDiscards.length - 1];
 
-            const canUse = this.bot.evaluateDiscardUse(0, potentialTile);
-            if (!canUse) {
+                const canUse = this.bot.evaluateDiscardUse(0, potentialTile);
+                if (!canUse) {
+                    audio.playError();
+                    this.addLog("Yerdeki taşı sadece elinizi açmak veya taş işlemek için çekebilirsiniz!", "system");
+                    return;
+                }
+
+                const tile = this.game.drawFromDiscard(0);
+                if (tile) {
+                    audio.playClack(0.5, 1.1);
+                    this.addTileToFirstEmptySlot(tile);
+                    this.renderBoard();
+                    this.addLog(`Sol oyuncudan ${tile.color}-${tile.number} taşını çektiniz.`);
+                }
+            });
+        }
+
+        // Discard pile: Throw tile to end turn (Benim Attıklarım)
+        this.discardPile.addEventListener('click', () => {
+            if (this.game.turn !== 0) return;
+            if (!this.game.drawnThisTurn) {
+                this.addLog("Önce desteden veya sol oyuncudan (Bana Atılan) taş çekmelisiniz!", "system");
                 audio.playError();
-                this.addLog("Yerdeki taşı sadece elinizi açmak veya taş işlemek için çekebilirsiniz!", "system");
                 return;
             }
 
-            const tile = this.game.drawFromDiscard(0);
-            if (tile) {
-                audio.playClack(0.5, 1.1);
-                this.addTileToFirstEmptySlot(tile);
-                this.renderBoard();
-                this.addLog(`Yerdeki ${tile.color}-${tile.number} taşını çektiniz.`);
+            if (this.selectedTileIds.size === 1) {
+                const tileId = Array.from(this.selectedTileIds)[0];
+                const success = this.game.discardTile(0, tileId);
+                if (success) {
+                    this.removeTileFromRackGrid(tileId);
+                    this.selectedTileIds.clear();
+                    audio.playClack(0.6, 0.9);
+                    this.renderBoard();
+                    this.addLog("Taş attınız. Sıra diğer oyuncuda.");
+                    this.triggerBotTurns();
+                } else {
+                    audio.playError();
+                    this.addLog("Seçtiğiniz taş atılamadı!", "system");
+                }
+            } else if (this.selectedTileIds.size === 0) {
+                this.addLog("Lütfen atmak istediğiniz taşı seçip 'Benim Attığım' alanına tıklayın.", "system");
+            } else {
+                this.addLog("Lütfen atmak için sadece 1 taş seçin!", "system");
             }
         });
 
@@ -1603,13 +1881,46 @@ class OkeyUI {
             audio.playClack(0.3, 0.9);
         });
 
+        if (this.btnProcessTile) {
+            this.btnProcessTile.addEventListener('click', () => {
+                this.handleProcessTileClick();
+            });
+        }
+
         this.btnOpenMelds.addEventListener('click', () => {
+            if (this.game.turn !== 0) {
+                this.addLog("Sıra sizde değil!", "system");
+                audio.playError();
+                return;
+            }
+            if (!this.game.drawnThisTurn) {
+                this.addLog("Önce yerden veya desteden taş çekmelisiniz!", "system");
+                audio.playError();
+                return;
+            }
+
             const selectedTiles = [];
             this.selectedTileIds.forEach(id => {
                 const tile = this.game.players[0].hand.find(t => t.id === id);
                 if (tile) selectedTiles.push(tile);
             });
+
+            if (selectedTiles.length === 0) {
+                this.addLog("Lütfen açmak istediğiniz perleri ıstakanızdan seçin veya 'Perleri Diz' butonuna basın.", "system");
+                audio.playError();
+                return;
+            }
+
             const meldsInfo = this.bot.findAllPossibleMelds(selectedTiles);
+            
+            const meldTileIds = new Set(meldsInfo.melds.flat().map(t => t.id));
+            const meldLeftovers = selectedTiles.filter(t => !meldTileIds.has(t.id));
+            if (meldLeftovers.length > 0) {
+                this.addLog("Seçtiğiniz taşlar arasında per oluşturmayan fazla taş(lar) var. Lütfen sadece perleri seçin.", "system");
+                audio.playError();
+                return;
+            }
+
             const result = this.game.openMelds(0, meldsInfo.melds);
             
             if (result.success) {
@@ -1620,34 +1931,36 @@ class OkeyUI {
                 this.addLog(`Elinizi açtınız! Toplam per puanı: ${result.sum}`, "player-action");
             } else {
                 audio.playError();
-                alert(result.reason);
+                this.addLog(`El açma engellendi: ${result.reason}`, "system");
             }
         });
 
         this.btnOpenPairs.addEventListener('click', () => {
+            if (this.game.turn !== 0) {
+                this.addLog("Sıra sizde değil!", "system");
+                audio.playError();
+                return;
+            }
+            if (!this.game.drawnThisTurn) {
+                this.addLog("Önce yerden veya desteden taş çekmelisiniz!", "system");
+                audio.playError();
+                return;
+            }
+
             const selectedTiles = [];
             this.selectedTileIds.forEach(id => {
                 const tile = this.game.players[0].hand.find(t => t.id === id);
                 if (tile) selectedTiles.push(tile);
             });
-            // Find pairs
-            const pairs = [];
-            const usedPairIds = new Set();
-            for (let i = 0; i < selectedTiles.length; i++) {
-                if (usedPairIds.has(selectedTiles[i].id)) continue;
-                for (let j = i + 1; j < selectedTiles.length; j++) {
-                    if (usedPairIds.has(selectedTiles[j].id)) continue;
-                    const t1 = selectedTiles[i];
-                    const t2 = selectedTiles[j];
-                    if ((t1.color === t2.color && t1.number === t2.number) || 
-                        (t1.isOkey && !t2.isOkey) || (!t1.isOkey && t2.isOkey)) {
-                        pairs.push([t1, t2]);
-                        usedPairIds.add(t1.id);
-                        usedPairIds.add(t2.id);
-                        break;
-                    }
-                }
+
+            if (selectedTiles.length === 0) {
+                this.addLog("Lütfen açmak istediğiniz çiftleri ıstakanızdan seçin veya 'Çiftleri Diz' butonuna basın.", "system");
+                audio.playError();
+                return;
             }
+
+            const pairs = this.findOptimalPairs(selectedTiles);
+
             const result = this.game.openPairs(0, pairs);
 
             if (result.success) {
@@ -1655,10 +1968,10 @@ class OkeyUI {
                 this.selectedTileIds.clear();
                 this.clearRackOfTiles(pairs.flat());
                 this.renderBoard();
-                this.addLog(`Çift açtınız! (5 Çift)`, "player-action");
+                this.addLog(`Çift açtınız! (${pairs.length} Çift)`, "player-action");
             } else {
                 audio.playError();
-                alert(result.reason);
+                this.addLog(`Çift açma engellendi: ${result.reason}`, "system");
             }
         });
 
@@ -1723,12 +2036,226 @@ class OkeyUI {
         }
     }
 
+    findOptimalPairs(tiles) {
+        const pairs = [];
+        const usedIds = new Set();
+        
+        // Filter out indicator tile if present (indicator cannot be used in pairs)
+        const validTiles = tiles.filter(t => {
+            if (!this.game.indicatorTile) return true;
+            const isInd = !t.isFakeJoker && !t.isOkey && t.color === this.game.indicatorTile.color && t.number === this.game.indicatorTile.number;
+            return !isInd;
+        });
+
+        // PASS 1: Pair exact matching natural twin tiles first (Same color, same number, neither is Okey)
+        for (let i = 0; i < validTiles.length; i++) {
+            const t1 = validTiles[i];
+            if (usedIds.has(t1.id) || this.game.isWildcard(t1)) continue;
+
+            for (let j = i + 1; j < validTiles.length; j++) {
+                const t2 = validTiles[j];
+                if (usedIds.has(t2.id) || this.game.isWildcard(t2)) continue;
+
+                if (t1.color === t2.color && t1.number === t2.number) {
+                    pairs.push([t1, t2]);
+                    usedIds.add(t1.id);
+                    usedIds.add(t2.id);
+                    break;
+                }
+            }
+        }
+
+        // PASS 2: Pair remaining single natural tiles with Okey (Wildcard) tiles
+        const remainingSingles = validTiles.filter(t => !usedIds.has(t.id) && !this.game.isWildcard(t));
+        const remainingOkeys = validTiles.filter(t => !usedIds.has(t.id) && this.game.isWildcard(t));
+
+        let okeyIdx = 0;
+        for (const single of remainingSingles) {
+            if (okeyIdx < remainingOkeys.length) {
+                const okey = remainingOkeys[okeyIdx++];
+                pairs.push([single, okey]);
+                usedIds.add(single.id);
+                usedIds.add(okey.id);
+            }
+        }
+
+        // PASS 3: Pair any remaining Okeys with each other
+        const leftoverOkeys = remainingOkeys.filter(t => !usedIds.has(t.id));
+        for (let k = 0; k < leftoverOkeys.length - 1; k += 2) {
+            pairs.push([leftoverOkeys[k], leftoverOkeys[k + 1]]);
+            usedIds.add(leftoverOkeys[k].id);
+            usedIds.add(leftoverOkeys[k + 1].id);
+        }
+
+        return pairs;
+    }
+
+    findAllProcessableTilesInHand() {
+        const player0 = this.game.players[0];
+        const hasOpened = player0.openedMelds.length > 0 || player0.openedInPairs;
+        if (!hasOpened || this.game.turn !== 0 || !this.game.drawnThisTurn) {
+            return [];
+        }
+
+        const processableList = [];
+
+        // Check each tile in hand
+        for (const tile of player0.hand) {
+            let fits = false;
+            for (let pIdx = 0; pIdx < 4; pIdx++) {
+                const targetPlayer = this.game.players[pIdx];
+                if (targetPlayer.openedInPairs) continue;
+
+                for (let mIdx = 0; mIdx < targetPlayer.openedMelds.length; mIdx++) {
+                    const targetMeld = targetPlayer.openedMelds[mIdx];
+                    const fit = this.canTileFitInMeld(tile, targetMeld);
+                    if (fit) {
+                        processableList.push({
+                            tile,
+                            targetPlayerIdx: pIdx,
+                            meldIdx: mIdx,
+                            appendToStart: (fit.position === 'start')
+                        });
+                        fits = true;
+                        break;
+                    }
+                }
+                if (fits) break;
+            }
+        }
+
+        return processableList;
+    }
+
+    canTileFitInMeld(tile, meld) {
+        if (!meld || meld.length === 0) return null;
+
+        // Try prepending to start
+        const testStart = [tile, ...meld];
+        const valStart = this.game.validateMeld(testStart);
+        if (valStart.valid) return { position: 'start' };
+
+        // Try appending to end
+        const testEnd = [...meld, tile];
+        const valEnd = this.game.validateMeld(testEnd);
+        if (valEnd.valid) return { position: 'end' };
+
+        return null;
+    }
+
+    handleProcessTileClick() {
+        if (this.game.turn !== 0) {
+            this.addLog("Sıra sizde değil!", "system");
+            audio.playError();
+            return;
+        }
+        if (!this.game.drawnThisTurn) {
+            this.addLog("Önce yerden veya desteden taş çekmelisiniz!", "system");
+            audio.playError();
+            return;
+        }
+
+        const player0 = this.game.players[0];
+        const hasOpened = player0.openedMelds.length > 0 || player0.openedInPairs;
+        if (!hasOpened) {
+            this.addLog("Taş işleyebilmek için önce kendi elinizi açmış olmalısınız!", "system");
+            audio.playError();
+            return;
+        }
+
+        // If user explicitly selected 1 tile, process that selected tile
+        if (this.selectedTileIds.size === 1) {
+            const tileId = Array.from(this.selectedTileIds)[0];
+            const tile = player0.hand.find(t => t.id === tileId);
+            if (!tile) return;
+
+            let processed = false;
+            for (let pIdx = 0; pIdx < 4; pIdx++) {
+                const targetPlayer = this.game.players[pIdx];
+                if (targetPlayer.openedInPairs) continue;
+
+                for (let mIdx = 0; mIdx < targetPlayer.openedMelds.length; mIdx++) {
+                    const targetMeld = targetPlayer.openedMelds[mIdx];
+                    const fit = this.canTileFitInMeld(tile, targetMeld);
+
+                    if (fit) {
+                        const appendToStart = (fit.position === 'start');
+                        const addResult = this.game.addTileToTable(0, tile.id, pIdx, mIdx, appendToStart);
+                        
+                        if (addResult.success) {
+                            audio.playClack(0.5, 1.0);
+                            this.selectedTileIds.clear();
+                            this.removeTileFromRackGrid(tile.id);
+                            this.renderBoard();
+                            this.updateSelectionIndicators();
+                            this.addLog(`Siz, ${targetPlayer.name} adlı oyuncunun serine ${tile.color}-${tile.number} taşını işlediniz.`, "player-action");
+                            processed = true;
+                            break;
+                        }
+                    }
+                }
+                if (processed) break;
+            }
+
+            if (!processed) {
+                audio.playError();
+                this.addLog("Seçtiğiniz taş masadaki hiçbir pere işlenemiyor!", "system");
+            }
+            return;
+        }
+
+        // Automatic 1-Click Auto-Processing for all processable tiles in hand!
+        let processedCount = 0;
+        let continueLoop = true;
+
+        while (continueLoop) {
+            continueLoop = false;
+            const processableList = this.findAllProcessableTilesInHand();
+
+            if (processableList.length > 0) {
+                const item = processableList[0];
+                const addResult = this.game.addTileToTable(0, item.tile.id, item.targetPlayerIdx, item.meldIdx, item.appendToStart);
+                
+                if (addResult.success) {
+                    processedCount++;
+                    const targetPlayerName = this.game.players[item.targetPlayerIdx].name;
+                    this.removeTileFromRackGrid(item.tile.id);
+                    this.addLog(`Siz, ${targetPlayerName} adlı oyuncunun serine ${item.tile.color}-${item.tile.number} taşını işlediniz.`, "player-action");
+                    continueLoop = true;
+                }
+            }
+        }
+
+        if (processedCount > 0) {
+            audio.playClack(0.5, 1.0);
+            this.selectedTileIds.clear();
+            this.renderBoard();
+            this.updateSelectionIndicators();
+            this.addLog(`Toplam ${processedCount} adet taş başarıyla masadaki perlere otomatik işlendi!`, "player-action");
+        } else {
+            audio.playError();
+            this.addLog("Elinizde masadaki perlere işlenebilecek taş bulunamadı!", "system");
+        }
+    }
+
     triggerBotTurns() {
         if (this.game.status !== 'playing') return;
 
+        if (this.game.deck.length === 0 && !this.game.drawnThisTurn) {
+            this.game.endRoundNull();
+            this.renderBoard();
+            this.showRoundOver();
+            this.addLog("Deste bitti! El berabere tamamlandı.", "system");
+            return;
+        }
+
         const nextBotPlay = () => {
             if (this.game.turn === 0 || this.game.status !== 'playing') {
-                this.renderBoard();
+                if (this.game.status === 'round_end') {
+                    this.showRoundOver();
+                } else {
+                    this.renderBoard();
+                }
                 return;
             }
 
@@ -1893,12 +2420,11 @@ class OkeyUI {
 
             const nameEl = document.querySelector(`#table-area-${idx} .name`);
             if (nameEl) {
-                let displayName = idx === 0 ? "Siz" : (idx === 1 ? "Metin" : (idx === 2 ? "Canan" : "Oya"));
+                let displayName = player.name || (idx === 0 ? "Siz" : (idx === 1 ? "Metin" : (idx === 2 ? "Canan" : "Oya")));
                 if (this.game.partnerMode) {
-                    if (idx === 0) displayName = "Siz (Eş: Canan)";
-                    if (idx === 1) displayName = "Metin (Eş: Oya)";
-                    if (idx === 2) displayName = "Canan (Eş: Siz)";
-                    if (idx === 3) displayName = "Oya (Eş: Metin)";
+                    const partnerIdx = (idx + 2) % 4;
+                    const partnerName = this.game.players[partnerIdx].name || (partnerIdx === 0 ? "Siz" : (partnerIdx === 1 ? "Metin" : (partnerIdx === 2 ? "Canan" : "Oya")));
+                    displayName = `${displayName} (Eş: ${partnerName})`;
                 }
                 nameEl.textContent = displayName + (player.hand.length > 0 ? ` (${player.hand.length} Taş)` : '');
             }
@@ -1991,6 +2517,64 @@ class OkeyUI {
         }
     }
 
+    renderLobbySeats(seats) {
+        const grid = document.getElementById('lobby-seats-grid');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+        const teamLabels = ["Takım A (Eş 1)", "Takım B (Eş 1)", "Takım A (Eş 2 - Ortağınız)", "Takım B (Eş 2)"];
+
+        seats.forEach((seat, idx) => {
+            const card = document.createElement('div');
+            card.className = 'seat-card';
+            const isMySeat = (idx === this.multiplayer.mySeatIndex);
+
+            card.style.cssText = `
+                background: rgba(255, 255, 255, 0.05);
+                border: 1.5px solid ${isMySeat ? 'var(--primary-color, #00e676)' : 'rgba(255, 255, 255, 0.1)'};
+                border-radius: 12px;
+                padding: 12px 14px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                position: relative;
+            `;
+
+            const teamBadge = (idx === 0 || idx === 2) 
+                ? `<span style="background: rgba(33, 150, 243, 0.2); color: #90caf9; border: 1px solid rgba(33, 150, 243, 0.4); font-size: 11px; padding: 2px 6px; border-radius: 6px; font-weight: 700;">${teamLabels[idx]}</span>`
+                : `<span style="background: rgba(233, 30, 99, 0.2); color: #f48fb1; border: 1px solid rgba(233, 30, 99, 0.4); font-size: 11px; padding: 2px 6px; border-radius: 6px; font-weight: 700;">${teamLabels[idx]}</span>`;
+
+            card.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 600;">Koltuk ${idx + 1}</span>
+                    ${teamBadge}
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                        ${seat.isBot ? '🤖' : '👤'}
+                    </div>
+                    <div>
+                        <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: ${isMySeat ? '#00e676' : '#fff'};">
+                            ${seat.name} ${isMySeat ? '(Siz)' : ''}
+                        </h4>
+                        <span style="font-size: 11px; color: rgba(255,255,255,0.5);">${seat.isBot ? 'Bot Yapay Zeka' : 'Gerçek Oyuncu'}</span>
+                    </div>
+                </div>
+                ${!isMySeat ? `<button class="btn btn-sm btn-secondary btn-swap-seat" data-seat="${idx}" style="margin-top: 6px; font-size: 11px; padding: 4px 8px; width: 100%;">Bu Koltuğa Geç (Eş Ol)</button>` : '<span style="font-size: 11px; color: #a5d6a7; font-weight: 700; text-align: center; margin-top: 6px;">Oturduğunuz Koltuk</span>'}
+            `;
+
+            grid.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-swap-seat').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetIdx = parseInt(e.target.dataset.seat);
+                this.multiplayer.swapSeat(targetIdx);
+                audio.playClack(0.4, 1.2);
+            });
+        });
+    }
+
     handleTableMeldClick(targetPlayerIdx, meldIdx, targetTile) {
         if (this.game.turn !== 0 || this.selectedTileIds.size !== 1) return;
         
@@ -2035,37 +2619,86 @@ class OkeyUI {
     }
 
     renderDiscardPile() {
-        this.activeDiscardContainer.innerHTML = '';
-        
-        const prevPlayerIdx = 3;
-        const discards = this.game.players[prevPlayerIdx].discards;
-        
-        if (discards.length > 0) {
-            const tile = discards[discards.length - 1];
-            this.discardPlaceholder.style.display = 'none';
-            
-            const tileEl = document.createElement('div');
-            tileEl.className = `tile-3d tile-${tile.color} ${tile.isOkey ? 'wildcard' : ''} ${tile.isFakeJoker ? 'fake-joker' : ''}`;
-            tileEl.innerHTML = this.getTileHTML(tile);
-            
-            if (this.game.turn === 0 && !this.game.drawnThisTurn) {
-                tileEl.setAttribute('draggable', 'true');
-                tileEl.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('text/plain', tile.id);
-                    e.dataTransfer.setData('source', 'discard');
-                });
+        // 1. Render Left Discard Pile (Bana Atılan Taş - Player 3)
+        if (this.leftDiscardContainer) {
+            this.leftDiscardContainer.innerHTML = '';
+            const leftDiscards = this.game.players[3].discards;
+            if (leftDiscards.length > 0) {
+                const tile = leftDiscards[leftDiscards.length - 1];
+                if (this.leftDiscardPlaceholder) this.leftDiscardPlaceholder.style.display = 'none';
+                
+                const tileEl = document.createElement('div');
+                tileEl.className = `tile-3d tile-${tile.color} ${tile.isOkey ? 'wildcard' : ''} ${tile.isFakeJoker ? 'fake-joker' : ''}`;
+                tileEl.innerHTML = this.getTileHTML(tile);
+                
+                if (this.game.turn === 0 && !this.game.drawnThisTurn) {
+                    tileEl.setAttribute('draggable', 'true');
+                    tileEl.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('text/plain', tile.id);
+                        e.dataTransfer.setData('source', 'discard');
+                    });
+                }
+                this.leftDiscardContainer.appendChild(tileEl);
+            } else {
+                if (this.leftDiscardPlaceholder) this.leftDiscardPlaceholder.style.display = 'flex';
             }
+        }
 
-            this.activeDiscardContainer.appendChild(tileEl);
-        } else {
-            this.discardPlaceholder.style.display = 'flex';
+        // 2. Render Right Discard Pile (Benim Attığım - Player 0)
+        if (this.activeDiscardContainer) {
+            this.activeDiscardContainer.innerHTML = '';
+            const myDiscards = this.game.players[0].discards;
+            if (myDiscards.length > 0) {
+                const tile = myDiscards[myDiscards.length - 1];
+                if (this.discardPlaceholder) this.discardPlaceholder.style.display = 'none';
+                
+                const tileEl = document.createElement('div');
+                tileEl.className = `tile-3d tile-${tile.color} ${tile.isOkey ? 'wildcard' : ''} ${tile.isFakeJoker ? 'fake-joker' : ''}`;
+                tileEl.innerHTML = this.getTileHTML(tile);
+                this.activeDiscardContainer.appendChild(tileEl);
+            } else {
+                if (this.discardPlaceholder) this.discardPlaceholder.style.display = 'flex';
+            }
         }
     }
 
-    renderRack() {
+    reconcileRackWithHand() {
+        if (!this.game || !this.game.players || !this.game.players[0]) return;
+        const hand = this.game.players[0].hand;
+        const handTileIds = new Set(hand.map(t => t.id));
+
+        // 1. Clear grid slots whose tiles are no longer in player's hand
         for (let r = 0; r < 2; r++) {
-            for (let c = 0; c < 20; c++) {
+            for (let c = 0; c < 24; c++) {
+                if (this.rackGrid[r][c] && !handTileIds.has(this.rackGrid[r][c].id)) {
+                    this.rackGrid[r][c] = null;
+                }
+            }
+        }
+
+        // 2. Collect current grid tile IDs
+        const gridTileIds = new Set();
+        for (let r = 0; r < 2; r++) {
+            for (let c = 0; c < 24; c++) {
+                if (this.rackGrid[r][c]) {
+                    gridTileIds.add(this.rackGrid[r][c].id);
+                }
+            }
+        }
+
+        // 3. Find any hand tiles missing from grid and place them in first available slots
+        const missingHandTiles = hand.filter(t => !gridTileIds.has(t.id));
+        missingHandTiles.forEach(tile => {
+            this.addTileToFirstEmptySlot(tile);
+        });
+    }
+
+    renderRack() {
+        this.reconcileRackWithHand();
+        for (let r = 0; r < 2; r++) {
+            for (let c = 0; c < 24; c++) {
                 const slot = document.querySelector(`.rack-slot[data-row="${r}"][data-col="${c}"]`);
+                if (!slot) continue;
                 slot.innerHTML = '';
                 
                 const tile = this.rackGrid[r][c];
@@ -2150,56 +2783,35 @@ class OkeyUI {
 
         const selectedBadge = document.getElementById('selected-total-badge');
         const dynamicBadge = document.getElementById('dynamic-status-badge');
-        const hasOpenedBefore = this.game.players[0].openedMelds.length > 0 || this.game.players[0].openedInPairs;
+        const player0 = this.game.players[0];
+        const hasOpenedBefore = player0.openedMelds.length > 0 || player0.openedInPairs;
+        const isMyTurn = (this.game.turn === 0);
+        const canActThisTurn = isMyTurn && this.game.drawnThisTurn;
 
         if (selectedTiles.length > 0) {
             this.selectedSumIndicator.style.display = 'inline-block';
 
-            // Find best melds from selected tiles using the DFS optimal combination algorithm
+            // 1. Find best melds from selected tiles
             const meldsInfo = this.bot.findAllPossibleMelds(selectedTiles);
             const validGroupsCount = meldsInfo.melds.length;
             const totalSum = meldsInfo.totalSum;
             
-            // Check leftovers for melds
             const meldTileIds = new Set(meldsInfo.melds.flat().map(t => t.id));
             const meldLeftovers = selectedTiles.filter(t => !meldTileIds.has(t.id));
             const hasMeldLeftovers = meldLeftovers.length > 0;
 
-            // Find pairs from selected tiles
-            const pairs = [];
-            const usedPairIds = new Set();
-            for (let i = 0; i < selectedTiles.length; i++) {
-                if (usedPairIds.has(selectedTiles[i].id)) continue;
-                for (let j = i + 1; j < selectedTiles.length; j++) {
-                    if (usedPairIds.has(selectedTiles[j].id)) continue;
-                    
-                    const t1 = selectedTiles[i];
-                    const t2 = selectedTiles[j];
-
-                    const isIndicator = (t) => this.game.indicatorTile && !t.isFakeJoker && !t.isOkey && t.color === this.game.indicatorTile.color && t.number === this.game.indicatorTile.number;
-                    if (isIndicator(t1) || isIndicator(t2)) continue;
-                    
-                    if ((t1.color === t2.color && t1.number === t2.number) || 
-                        (t1.isOkey && !t2.isOkey) || (!t1.isOkey && t2.isOkey)) {
-                        pairs.push([t1, t2]);
-                        usedPairIds.add(t1.id);
-                        usedPairIds.add(t2.id);
-                        break;
-                    }
-                }
-            }
+            // 2. Find pairs from selected tiles using 2-Pass Optimal Pair Matching
+            const pairs = this.findOptimalPairs(selectedTiles);
             const hasPairLeftovers = selectedTiles.length !== pairs.length * 2;
 
-            // Determine mode: If they are selecting pairs (all tiles form pairs)
-            const isPairMode = (pairs.length > 0 && !hasPairLeftovers) || 
-                               (pairs.length >= validGroupsCount && validGroupsCount === 0);
+            // Determine mode: Pair mode is active when ALL selected tiles form pairs without leftovers
+            const isPairMode = (pairs.length > 0 && !hasPairLeftovers);
 
             if (isPairMode) {
                 const pairsCount = pairs.length;
                 this.selectedSumIndicator.textContent = `Seçili: ${pairsCount} Çift`;
                 
-                const openedInPairs = this.game.players[0].openedInPairs;
-                const openedInMelds = this.game.players[0].openedMelds.length > 0 && !this.game.players[0].openedInPairs;
+                const openedInMelds = player0.openedMelds.length > 0 && !player0.openedInPairs;
 
                 if (openedInMelds) {
                     dynamicBadge.textContent = "Seri açtığınız için çift açamazsınız!";
@@ -2209,7 +2821,7 @@ class OkeyUI {
                     dynamicBadge.textContent = `Çift Sayısı: ${pairsCount} / 5 Çift`;
                     if (pairsCount >= 5 && !hasPairLeftovers) {
                         dynamicBadge.className = 'badge-stat valid';
-                        this.btnOpenPairs.disabled = !this.game.drawnThisTurn;
+                        this.btnOpenPairs.disabled = !canActThisTurn;
                     } else {
                         dynamicBadge.className = 'badge-stat invalid';
                         this.btnOpenPairs.disabled = true;
@@ -2218,65 +2830,58 @@ class OkeyUI {
                     dynamicBadge.textContent = `Çift Sayısı: ${pairsCount} Çift`;
                     if (!hasPairLeftovers) {
                         dynamicBadge.className = 'badge-stat valid';
-                        this.btnOpenPairs.disabled = !this.game.drawnThisTurn;
+                        this.btnOpenPairs.disabled = !canActThisTurn;
                     } else {
                         dynamicBadge.className = 'badge-stat invalid';
                         this.btnOpenPairs.disabled = true;
                     }
                 }
-                this.btnOpenMelds.disabled = true;
+                this.btnOpenMelds.disabled = true; // ALWAYS disable Elin Aç in Pair Mode
             } else {
                 // Meld Mode
-                const openedInPairs = this.game.players[0].openedInPairs;
-                const required = this.game.progressiveMode ? this.game.currentOpenThreshold : 101;
+                const openedInPairs = player0.openedInPairs;
+                const required = this.game.getRequiredOpenThreshold(0);
                 this.selectedSumIndicator.textContent = `Seçili: ${totalSum} Puan`;
                 
-                const canOpenNormal = totalSum >= required && !hasMeldLeftovers && validGroupsCount > 0;
                 const canAddNormal = !hasMeldLeftovers && validGroupsCount > 0;
+                const canOpenNormal = canAddNormal && (hasOpenedBefore || totalSum >= required);
 
                 if (openedInPairs) {
                     dynamicBadge.textContent = "Çift açtığınız için per açamazsınız!";
                     dynamicBadge.className = 'badge-stat invalid';
                     this.btnOpenMelds.disabled = true;
                 } else if (!hasOpenedBefore) {
-                    const partnerIdx = 2;
-                    const partner = this.game.players[partnerIdx];
-                    const partnerOpenedNormal = this.game.partnerMode && partner.openedMelds.length > 0 && !partner.openedInPairs;
-
-                    const required = partnerOpenedNormal ? 101 : (this.game.progressiveMode ? this.game.currentOpenThreshold : 101);
-                    const canOpen = canOpenNormal && totalSum >= required;
-
                     if (hasMeldLeftovers) {
-                        dynamicBadge.textContent = partnerOpenedNormal 
-                            ? `Per Toplamı: ${totalSum} / 101 Puan (Eşiniz Açtı - Geçersiz Taş var)`
-                            : `Per Toplamı: ${totalSum} / ${required} Puan (Geçersiz Taş var)`;
+                        dynamicBadge.textContent = `Per Toplamı: ${totalSum} / ${required} Puan (Geçersiz Taş var)`;
                         dynamicBadge.className = 'badge-stat invalid';
+                        this.btnOpenMelds.disabled = true;
                     } else {
-                        dynamicBadge.textContent = partnerOpenedNormal
-                            ? `Per Toplamı: ${totalSum} / 101 Puan (Eşiniz Açtı - Baraj: 101!)`
-                            : `Per Toplamı: ${totalSum} / ${required} Puan`;
-                        if (canOpen) {
+                        dynamicBadge.textContent = `Per Toplamı: ${totalSum} / ${required} Puan`;
+                        if (canOpenNormal) {
                             dynamicBadge.className = 'badge-stat valid';
+                            this.btnOpenMelds.disabled = !canActThisTurn;
                         } else {
                             dynamicBadge.className = 'badge-stat invalid';
+                            this.btnOpenMelds.disabled = true;
                         }
                     }
-                    this.btnOpenMelds.disabled = !canOpen || !this.game.drawnThisTurn;
                 } else {
                     if (hasMeldLeftovers) {
                         dynamicBadge.textContent = `Per Toplamı: ${totalSum} Puan (Geçersiz Taş var)`;
                         dynamicBadge.className = 'badge-stat invalid';
+                        this.btnOpenMelds.disabled = true;
                     } else {
                         dynamicBadge.textContent = `Per Toplamı: ${totalSum} Puan`;
                         if (canAddNormal) {
                             dynamicBadge.className = 'badge-stat valid';
+                            this.btnOpenMelds.disabled = !canActThisTurn;
                         } else {
                             dynamicBadge.className = 'badge-stat invalid';
+                            this.btnOpenMelds.disabled = true;
                         }
                     }
-                    this.btnOpenMelds.disabled = !canAddNormal || !this.game.drawnThisTurn;
                 }
-                this.btnOpenPairs.disabled = true;
+                this.btnOpenPairs.disabled = true; // ALWAYS disable Çift Aç in Meld Mode
             }
         } else {
             this.selectedSumIndicator.style.display = 'none';
@@ -2285,18 +2890,23 @@ class OkeyUI {
             this.btnOpenMelds.disabled = true;
             this.btnOpenPairs.disabled = true;
         }
+
+        if (this.btnProcessTile) {
+            const processableList = this.findAllProcessableTilesInHand();
+            this.btnProcessTile.disabled = (!canActThisTurn || (processableList.length === 0 && this.selectedTileIds.size !== 1));
+        }
     }
 
     syncRackFromHand() {
         this.rackGrid = [
-            Array(20).fill(null),
-            Array(20).fill(null)
+            Array(24).fill(null),
+            Array(24).fill(null)
         ];
 
         const hand = this.game.players[0].hand;
         let index = 0;
         for (let r = 0; r < 2; r++) {
-            for (let c = 0; c < 20; c++) {
+            for (let c = 0; c < 24; c++) {
                 if (index < hand.length) {
                     this.rackGrid[r][c] = hand[index++];
                 } else {
@@ -2314,16 +2924,27 @@ class OkeyUI {
         const leftovers = hand.filter(t => !meldTileIds.has(t.id));
 
         this.rackGrid = [
-            Array(20).fill(null),
-            Array(20).fill(null)
+            Array(24).fill(null),
+            Array(24).fill(null)
         ];
 
         let r = 0, c = 0;
         
         const placeTile = (tile) => {
-            if (c >= 20) {
+            if (c >= 24) {
                 r++;
                 c = 0;
+            }
+            if (r >= 2) {
+                r = 0;
+                c = 0;
+                while (r < 2 && this.rackGrid[r][c] !== null) {
+                    c++;
+                    if (c >= 24) {
+                        r++;
+                        c = 0;
+                    }
+                }
             }
             if (r < 2) {
                 this.rackGrid[r][c] = tile;
@@ -2333,10 +2954,10 @@ class OkeyUI {
 
         meldsInfo.melds.forEach(meld => {
             meld.forEach(tile => placeTile(tile));
-            c++;
+            if (c < 24) c++;
         });
 
-        c++;
+        if (c < 24) c++;
         leftovers.forEach(tile => placeTile(tile));
 
         // Auto-select all tiles that form valid melds
@@ -2353,42 +2974,31 @@ class OkeyUI {
 
     sortRackPairs() {
         const hand = this.game.players[0].hand;
-        const pairs = [];
-        const usedTileIds = new Set();
-
-        for (let i = 0; i < hand.length; i++) {
-            if (usedTileIds.has(hand[i].id)) continue;
-            for (let j = i + 1; j < hand.length; j++) {
-                if (usedTileIds.has(hand[j].id)) continue;
-                
-                const t1 = hand[i];
-                const t2 = hand[j];
-
-                const isIndicator = (t) => this.game.indicatorTile && !t.isFakeJoker && !t.isOkey && t.color === this.game.indicatorTile.color && t.number === this.game.indicatorTile.number;
-                if (isIndicator(t1) || isIndicator(t2)) continue;
-                
-                if ((t1.color === t2.color && t1.number === t2.number) || 
-                    (t1.isOkey && !t2.isOkey) || (!t1.isOkey && t2.isOkey)) {
-                    pairs.push([t1, t2]);
-                    usedTileIds.add(t1.id);
-                    usedTileIds.add(t2.id);
-                    break;
-                }
-            }
-        }
-
+        const pairs = this.findOptimalPairs(hand);
+        const usedTileIds = new Set(pairs.flat().map(t => t.id));
         const leftovers = hand.filter(t => !usedTileIds.has(t.id));
 
         this.rackGrid = [
-            Array(20).fill(null),
-            Array(20).fill(null)
+            Array(24).fill(null),
+            Array(24).fill(null)
         ];
 
         let r = 0, c = 0;
         const placeTile = (tile) => {
-            if (c >= 20) {
+            if (c >= 24) {
                 r++;
                 c = 0;
+            }
+            if (r >= 2) {
+                r = 0;
+                c = 0;
+                while (r < 2 && this.rackGrid[r][c] !== null) {
+                    c++;
+                    if (c >= 24) {
+                        r++;
+                        c = 0;
+                    }
+                }
             }
             if (r < 2) {
                 this.rackGrid[r][c] = tile;
@@ -2399,10 +3009,10 @@ class OkeyUI {
         pairs.forEach(pair => {
             placeTile(pair[0]);
             placeTile(pair[1]);
-            c++;
+            if (c < 24) c++;
         });
 
-        c++;
+        if (c < 24) c++;
         leftovers.forEach(tile => placeTile(tile));
 
         // Auto-select all tiles that form valid pairs
@@ -2419,7 +3029,7 @@ class OkeyUI {
 
     addTileToFirstEmptySlot(tile) {
         for (let r = 0; r < 2; r++) {
-            for (let c = 0; c < 20; c++) {
+            for (let c = 0; c < 24; c++) {
                 if (this.rackGrid[r][c] === null) {
                     this.rackGrid[r][c] = tile;
                     return;
@@ -2508,7 +3118,7 @@ class OkeyUI {
 
     removeTileFromRackGrid(tileId) {
         for (let r = 0; r < 2; r++) {
-            for (let c = 0; c < 20; c++) {
+            for (let c = 0; c < 24; c++) {
                 if (this.rackGrid[r][c] && this.rackGrid[r][c].id === tileId) {
                     this.rackGrid[r][c] = null;
                     return;
@@ -2520,7 +3130,7 @@ class OkeyUI {
     clearRackOfTiles(tilesList) {
         const ids = new Set(tilesList.map(t => t.id));
         for (let r = 0; r < 2; r++) {
-            for (let c = 0; c < 20; c++) {
+            for (let c = 0; c < 24; c++) {
                 if (this.rackGrid[r][c] && ids.has(this.rackGrid[r][c].id)) {
                     this.rackGrid[r][c] = null;
                 }
@@ -2721,7 +3331,16 @@ class OkeyUI {
     }
 }
 
-const ui = new OkeyUI();
-window.addEventListener('DOMContentLoaded', () => {
-    ui.init();
-});
+let ui;
+function startApp() {
+    if (!ui) {
+        ui = new OkeyUI();
+        ui.init();
+    }
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    startApp();
+} else {
+    window.addEventListener('DOMContentLoaded', startApp);
+}
