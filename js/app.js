@@ -2042,7 +2042,6 @@ class OkeyUI {
         let roomModeSelection = 'local';
         const roomButtons = document.querySelectorAll('#room-mode-selection .btn-toggle');
         const joinCodeGroup = document.getElementById('join-code-group');
-        roomButtons.forEach(btn => {
         const roomSettingsGroup = document.getElementById('room-settings-group');
         roomButtons.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -3831,6 +3830,7 @@ class OkeyUI {
             setTimeout(() => toast.remove(), 500);
         }, 5000);
     }
+}
 }
 
 let ui;
