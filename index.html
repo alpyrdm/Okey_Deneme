@@ -330,8 +330,10 @@
             
             <div class="room-share-box" style="display: flex; align-items: center; justify-content: space-between; background: rgba(33, 150, 243, 0.12); border: 1.5px dashed rgba(33, 150, 243, 0.4); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px;">
                 <div>
-                    <span style="font-size: 12px; color: #90caf9; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Oda Davet Linki:</span>
-            <p id="lobby-room-code-display">Oda Kodu Yükleniyor...</p>
+                    <span style="font-size: 12px; color: #90caf9; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Oda Davet Kodu:</span>
+                    <p id="lobby-room-code-display" style="margin: 0; font-size: 16px; font-weight: 700; color: #fff;">Oda Kodu Yükleniyor...</p>
+                </div>
+            </div>
             
             <div class="lobby-container">
                 <div class="seats-grid" id="lobby-seats-grid">
@@ -388,7 +390,7 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
-    <script src="js/app.js?v=3.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=3.0.0';}"></script>
+    <script src="js/app.js?v=4.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=4.0.0';}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof startApp === 'function') {
