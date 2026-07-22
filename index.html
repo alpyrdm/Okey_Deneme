@@ -328,62 +328,67 @@
             <div class="room-share-box" style="display: flex; align-items: center; justify-content: space-between; background: rgba(33, 150, 243, 0.12); border: 1.5px dashed rgba(33, 150, 243, 0.4); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px;">
                 <div>
                     <span style="font-size: 12px; color: #90caf9; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Oda Davet Linki:</span>
-                    <h4 id="lobby-room-code-display" style="font-family: 'Outfit', sans-serif; font-size: 18px; margin: 2px 0 0 0; color: #fff;">Oda: #OKEY-----</h4>
+            <p id="lobby-room-code-display">Oda Kodu Yükleniyor...</p>
+            
+            <div class="lobby-container">
+                <div class="seats-grid" id="lobby-seats-grid">
+                    <!-- Seats rendered via JS -->
                 </div>
-                <button class="btn btn-secondary" id="btn-lobby-copy-link" style="padding: 8px 16px;">📋 Davet Linkini Kopyala</button>
             </div>
 
-            <div class="seats-grid" id="lobby-seats-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px;">
-                <!-- 4 Seat Cards dynamically rendered -->
-            </div>
-
-            <div class="modal-actions" style="display: flex; gap: 12px;">
-                <button class="btn btn-secondary btn-block" id="btn-leave-lobby">Lobiden Çık</button>
-                <button class="btn btn-primary btn-large btn-block" id="btn-start-multiplayer-game">Masayı Başlat (Oyuna Gir)</button>
+            <div class="lobby-actions" style="display: flex; gap: 12px; margin-top: 16px;">
+                <button type="button" class="btn btn-secondary" id="btn-lobby-copy-link" style="flex: 1;">🔗 Davet Linkini Kopyala</button>
+                <button type="button" class="btn btn-primary" id="btn-start-multiplayer-game" style="flex: 1.5;">🚀 Oyunu Başlat</button>
+                <button type="button" class="btn btn-outline" id="btn-leave-lobby">Ayrıl</button>
             </div>
         </div>
     </div>
 
     <!-- MODAL: ROUND OVER SCOREBOARD -->
     <div class="modal-overlay" id="modal-round-over">
-        <div class="modal-card">
-            <h2 class="outfit-title" id="round-over-title">El Tamamlandı!</h2>
-            <div class="winner-announcement" id="round-winner-msg">... kazandı!</div>
+        <div class="modal-card" style="max-width: 600px;">
+            <h2 class="outfit-title" id="round-winner-title">El Bitti!</h2>
+            <p id="round-winner-subtitle">Oyuncuların el sonu puanları ve cezaları hesaplandı.</p>
             
-            <div class="round-scores-table">
-                <div class="score-table-header">
-                    <span>Oyuncu</span>
-                    <span>El Durumu</span>
-                    <span>İşlek Cezası</span>
-                    <span>Bu El Toplam</span>
-                    <span>Genel Toplam</span>
-                </div>
-                <div id="round-scores-list">
-                    <!-- Dynamic -->
+            <div class="scoreboard-details-card">
+                <div class="round-scores-table">
+                    <div class="score-table-header">
+                        <span>Oyuncu</span>
+                        <span>Elindeki Taş Toplamı</span>
+                        <span>İşlek / Istaka Cezası</span>
+                        <span>Bu El Puanı</span>
+                        <span>Toplam Skor / Çip</span>
+                    </div>
+                    <div class="score-table-body" id="round-scores-body">
+                        <!-- Scoreboard rows dynamically injected -->
+                    </div>
                 </div>
             </div>
 
-            <button class="btn btn-primary btn-large btn-block" id="btn-next-round">Sonraki Ele Geç</button>
+            <button type="button" class="btn btn-primary btn-large btn-block" id="btn-next-round">Sonraki Ele Geç</button>
         </div>
     </div>
 
     <!-- MODAL: GAME OVER / FINAL WINNER -->
     <div class="modal-overlay" id="modal-game-over">
-        <div class="modal-card winner-card">
-            <div class="trophy-animation">🏆</div>
-            <h2 class="outfit-title">Oyun Bitti!</h2>
-            <div class="winner-announcement" id="game-winner-msg">Tebrikler, Oyunu Kazandınız!</div>
+        <div class="modal-card" style="max-width: 520px; text-align: center;">
+            <div class="trophy-icon" style="font-size: 64px; margin-bottom: 8px;">🏆</div>
+            <h2 class="outfit-title" id="game-winner-title">Tebrikler! Oyunu Kazandınız!</h2>
+            <p id="game-winner-subtitle">Tüm eller tamamlandı ve şampiyon belirlendi.</p>
             
-            <div class="final-scores-list" id="final-scores-list">
-                <!-- Dynamic -->
+            <div class="final-rankings" id="final-rankings-list" style="display: flex; flex-direction: column; gap: 8px; margin: 16px 0;">
+                <!-- Final rankings injected by JS -->
             </div>
 
-            <button class="btn btn-primary btn-large btn-block" id="btn-restart-game">Yeni Oyun Başlat</button>
+            <button type="button" class="btn btn-primary btn-large btn-block" id="btn-restart-game">Yeni Oyun Başlat</button>
         </div>
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
     <script src="js/multiplayer.js"></script>
     <script src="js/app.js"></script>
+    <script>
+        if (typeof startApp === 'function') startApp();
+    </script>
 </body>
 </html>

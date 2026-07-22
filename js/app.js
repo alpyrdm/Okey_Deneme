@@ -3490,6 +3490,7 @@ let ui;
 function startApp() {
     if (!ui) {
         ui = new OkeyUI();
+        window.ui = ui;
         ui.init();
     }
 }
@@ -3499,3 +3500,4 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 } else {
     window.addEventListener('DOMContentLoaded', startApp);
 }
+window.startApp = startApp;
