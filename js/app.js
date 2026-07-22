@@ -11,187 +11,211 @@ class OkeyAudio {
 
     init() {
         if (this.ctx) return;
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (AudioContext) {
-            this.ctx = new AudioContext();
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                this.ctx = new AudioContext();
+            }
+        } catch (e) {
+            console.warn("AudioContext init error:", e);
         }
     }
 
     playClack(volume = 0.5, pitchMultiplier = 1.0) {
-        this.init();
-        if (!this.ctx) return;
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
+        try {
+            this.init();
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(() => {});
+            }
+
+            const now = this.ctx.currentTime;
+
+            const bufferSize = this.ctx.sampleRate * 0.05;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            const noiseNode = this.ctx.createBufferSource();
+            noiseNode.buffer = buffer;
+
+            const noiseFilter = this.ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = 1200 * pitchMultiplier;
+            noiseFilter.Q.value = 3.0;
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(volume * 0.4, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+            noiseNode.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(this.ctx.destination);
+
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(2200 * pitchMultiplier, now);
+            
+            const osc2 = this.ctx.createOscillator();
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(3400 * pitchMultiplier, now);
+
+            const oscGain = this.ctx.createGain();
+            oscGain.gain.setValueAtTime(volume * 0.3, now);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+            const osc2Gain = this.ctx.createGain();
+            osc2Gain.gain.setValueAtTime(volume * 0.15, now);
+            osc2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+
+            osc.connect(oscGain);
+            oscGain.connect(this.ctx.destination);
+
+            osc2.connect(osc2Gain);
+            osc2Gain.connect(this.ctx.destination);
+
+            noiseNode.start(now);
+            noiseNode.stop(now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+            osc2.start(now);
+            osc2.stop(now + 0.05);
+        } catch (e) {
+            console.warn("playClack audio error:", e);
         }
-
-        const now = this.ctx.currentTime;
-
-        const bufferSize = this.ctx.sampleRate * 0.05;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-        }
-
-        const noiseNode = this.ctx.createBufferSource();
-        noiseNode.buffer = buffer;
-
-        const noiseFilter = this.ctx.createBiquadFilter();
-        noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.value = 1200 * pitchMultiplier;
-        noiseFilter.Q.value = 3.0;
-
-        const noiseGain = this.ctx.createGain();
-        noiseGain.gain.setValueAtTime(volume * 0.4, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-
-        noiseNode.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(this.ctx.destination);
-
-        const osc = this.ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(2200 * pitchMultiplier, now);
-        
-        const osc2 = this.ctx.createOscillator();
-        osc2.type = 'triangle';
-        osc2.frequency.setValueAtTime(3400 * pitchMultiplier, now);
-
-        const oscGain = this.ctx.createGain();
-        oscGain.gain.setValueAtTime(volume * 0.3, now);
-        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-
-        const osc2Gain = this.ctx.createGain();
-        osc2Gain.gain.setValueAtTime(volume * 0.15, now);
-        osc2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
-
-        osc.connect(oscGain);
-        oscGain.connect(this.ctx.destination);
-
-        osc2.connect(osc2Gain);
-        osc2Gain.connect(this.ctx.destination);
-
-        noiseNode.start(now);
-        noiseNode.stop(now + 0.05);
-        osc.start(now);
-        osc.stop(now + 0.05);
-        osc2.start(now);
-        osc2.stop(now + 0.05);
     }
 
     playShuffle() {
-        this.init();
-        if (!this.ctx) return;
-        const clackCount = 8 + Math.floor(Math.random() * 5);
-        let timeDelay = 0;
-        for (let i = 0; i < clackCount; i++) {
-            timeDelay += 60 + Math.random() * 80;
-            setTimeout(() => {
-                const vol = 0.2 + Math.random() * 0.3;
-                const pitch = 0.8 + Math.random() * 0.4;
-                this.playClack(vol, pitch);
-            }, timeDelay);
+        try {
+            this.init();
+            if (!this.ctx) return;
+            const clackCount = 8 + Math.floor(Math.random() * 5);
+            let timeDelay = 0;
+            for (let i = 0; i < clackCount; i++) {
+                timeDelay += 60 + Math.random() * 80;
+                setTimeout(() => {
+                    const vol = 0.2 + Math.random() * 0.3;
+                    const pitch = 0.8 + Math.random() * 0.4;
+                    this.playClack(vol, pitch);
+                }, timeDelay);
+            }
+        } catch (e) {
+            console.warn("playShuffle audio error:", e);
         }
     }
 
     playDiscard() {
-        this.init();
-        if (!this.ctx) return;
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
+        try {
+            this.init();
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(() => {});
+            }
+
+            const now = this.ctx.currentTime;
+            const duration = 0.15;
+
+            const bufferSize = this.ctx.sampleRate * duration;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            const noiseNode = this.ctx.createBufferSource();
+            noiseNode.buffer = buffer;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(1000, now);
+            filter.frequency.exponentialRampToValueAtTime(300, now + duration);
+            filter.Q.value = 2.0;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.2, now + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            noiseNode.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            noiseNode.start(now);
+            noiseNode.stop(now + duration);
+
+            setTimeout(() => {
+                this.playClack(0.4, 0.95);
+            }, duration * 1000);
+        } catch (e) {
+            console.warn("playDiscard audio error:", e);
         }
-
-        const now = this.ctx.currentTime;
-        const duration = 0.15;
-
-        const bufferSize = this.ctx.sampleRate * duration;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-        }
-
-        const noiseNode = this.ctx.createBufferSource();
-        noiseNode.buffer = buffer;
-
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(1000, now);
-        filter.frequency.exponentialRampToValueAtTime(300, now + duration);
-        filter.Q.value = 2.0;
-
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.2, now + 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-        noiseNode.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        noiseNode.start(now);
-        noiseNode.stop(now + duration);
-
-        setTimeout(() => {
-            this.playClack(0.4, 0.95);
-        }, duration * 1000);
     }
 
     playWin() {
-        this.init();
-        if (!this.ctx) return;
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
+        try {
+            this.init();
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(() => {});
+            }
+
+            const now = this.ctx.currentTime;
+            const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+            
+            notes.forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.001, now + idx * 0.12);
+                gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.12 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now + idx * 0.12);
+                osc.stop(now + idx * 0.12 + 0.4);
+            });
+        } catch (e) {
+            console.warn("playWin audio error:", e);
         }
-
-        const now = this.ctx.currentTime;
-        const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
-        
-        notes.forEach((freq, idx) => {
-            const osc = this.ctx.createOscillator();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.12);
-
-            const gain = this.ctx.createGain();
-            gain.gain.setValueAtTime(0.001, now + idx * 0.12);
-            gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.12 + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
-
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-
-            osc.start(now + idx * 0.12);
-            osc.stop(now + idx * 0.12 + 0.4);
-        });
     }
 
     playError() {
-        this.init();
-        if (!this.ctx) return;
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
+        try {
+            this.init();
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(() => {});
+            }
+
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.linearRampToValueAtTime(120, now + 0.18);
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 400;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.linearRampToValueAtTime(0.001, now + 0.18);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } catch (e) {
+            console.warn("playError audio error:", e);
         }
-
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.linearRampToValueAtTime(120, now + 0.18);
-
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 400;
-
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.linearRampToValueAtTime(0.001, now + 0.18);
-
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.2);
     }
 }
 const audio = new OkeyAudio();
@@ -1476,7 +1500,24 @@ class OkeyUI {
         this.selectedSumIndicator = document.getElementById('selected-sum-indicator');
         this.btnProcessTile = document.getElementById('btn-process-tile');
         
-        this.multiplayer = new window.MultiplayerManager();
+        if (typeof window.MultiplayerManager !== 'undefined') {
+            this.multiplayer = new window.MultiplayerManager();
+        } else if (typeof MultiplayerManager !== 'undefined') {
+            this.multiplayer = new MultiplayerManager();
+        } else {
+            console.warn("MultiplayerManager is not defined yet, using fallback dummy.");
+            this.multiplayer = {
+                initHost: async (code, name) => ({ success: true, roomCode: code || 'OKEY-101' }),
+                joinRoom: async (code, name) => ({ success: true, roomCode: code, seatIndex: 0 }),
+                getShareableLink: () => window.location.href,
+                seats: [
+                    { id: 'host', name: 'Siz', isBot: false },
+                    { id: null, name: 'Bot 1', isBot: true },
+                    { id: null, name: 'Bot 2', isBot: true },
+                    { id: null, name: 'Bot 3', isBot: true }
+                ]
+            };
+        }
 
         this.rackGrid = [
             Array(24).fill(null),
@@ -1499,6 +1540,68 @@ class OkeyUI {
         }
         const sym = tile.color === 'red' ? '♥' : tile.color === 'blue' ? '♦' : tile.color === 'black' ? '♣' : '♠';
         return `<span class="tile-val">${tile.number}</span><div class="tile-cup"><span class="tile-sym">${sym}</span></div>`;
+    }
+
+    startGameDirectly() {
+        try {
+            if (this.modalStart) this.modalStart.classList.remove('active');
+            
+            const activeRoomBtn = document.querySelector('#room-mode-selection .btn-toggle.active');
+            const roomMode = activeRoomBtn ? activeRoomBtn.dataset.roomMode : 'local';
+
+            const inputName = document.getElementById('input-player-name');
+            const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "Siz";
+            if (this.game && this.game.players && this.game.players[0]) {
+                this.game.players[0].name = playerName;
+            }
+
+            if (roomMode === 'create') {
+                this.multiplayer.initHost(null, playerName).then(res => {
+                    const modalLobby = document.getElementById('modal-lobby');
+                    if (modalLobby) modalLobby.classList.add('active');
+                    this.renderLobbySeats(this.multiplayer.seats);
+                }).catch(() => {
+                    if (this.modalStart) this.modalStart.classList.remove('active');
+                    this.game.startNewGame(3);
+                    this.syncRackFromHand();
+                    this.renderBoard();
+                });
+                return;
+            } else if (roomMode === 'join') {
+                const inputCode = document.getElementById('input-room-code');
+                const code = inputCode ? inputCode.value.trim() : '';
+                if (code) {
+                    this.multiplayer.joinRoom(code, playerName).then(res => {
+                        const modalLobby = document.getElementById('modal-lobby');
+                        if (modalLobby) modalLobby.classList.add('active');
+                        this.renderLobbySeats(this.multiplayer.seats);
+                    }).catch(() => {
+                        if (this.modalStart) this.modalStart.classList.remove('active');
+                        this.game.startNewGame(3);
+                        this.syncRackFromHand();
+                        this.renderBoard();
+                    });
+                }
+                return;
+            }
+
+            const activeRoundBtn = document.querySelector('#round-selection .btn-toggle.active');
+            const rounds = activeRoundBtn ? parseInt(activeRoundBtn.dataset.rounds) : 3;
+
+            this.game.startNewGame(rounds);
+            this.syncRackFromHand();
+            this.renderBoard();
+            this.addLog("Oyun başladı! Taşlar dağıtıldı.", "system");
+        } catch (e) {
+            console.error("Direct start error:", e);
+            const m = document.getElementById('modal-start');
+            if (m) m.classList.remove('active');
+            if (this.game) {
+                this.game.startNewGame(3);
+                this.syncRackFromHand();
+                this.renderBoard();
+            }
+        }
     }
 
     init() {
@@ -1633,87 +1736,97 @@ class OkeyUI {
             });
         });
 
-        this.btnStartGame.addEventListener('click', async () => {
-            audio.init();
+        if (this.btnStartGame) {
+            this.btnStartGame.addEventListener('click', async () => {
+                try {
+                    try { audio.init(); } catch (e) {}
 
-            const inputName = document.getElementById('input-player-name');
-            const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "Siz";
-            this.game.players[0].name = playerName;
+                    const inputName = document.getElementById('input-player-name');
+                    const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "Siz";
+                    this.game.players[0].name = playerName;
 
-            if (roomModeSelection === 'create') {
-                this.addLog("Oda oluşturuluyor...", "system");
-                const res = await this.multiplayer.initHost(null, playerName);
-                const roomBadge = document.getElementById('room-code-badge-view');
-                const roomText = document.getElementById('room-code-text');
-                const lobbyDisplay = document.getElementById('lobby-room-code-display');
+                    if (roomModeSelection === 'create') {
+                        this.addLog("Oda oluşturuluyor...", "system");
+                        const res = await this.multiplayer.initHost(null, playerName);
+                        const roomBadge = document.getElementById('room-code-badge-view');
+                        const roomText = document.getElementById('room-code-text');
+                        const lobbyDisplay = document.getElementById('lobby-room-code-display');
 
-                if (roomBadge && roomText) {
-                    roomText.textContent = `Oda: #${res.roomCode}`;
-                    roomBadge.style.display = 'inline-flex';
+                        if (roomBadge && roomText) {
+                            roomText.textContent = `Oda: #${res.roomCode}`;
+                            roomBadge.style.display = 'inline-flex';
+                        }
+                        if (lobbyDisplay) {
+                            lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
+                        }
+
+                        if (this.modalStart) this.modalStart.classList.remove('active');
+                        const modalLobby = document.getElementById('modal-lobby');
+                        if (modalLobby) modalLobby.classList.add('active');
+
+                        this.renderLobbySeats(this.multiplayer.seats);
+                        this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
+
+                        this.addLog(`Oda oluşturuldu! Kod: ${res.roomCode}`, "system");
+                        return;
+                    } else if (roomModeSelection === 'join') {
+                        const inputCode = document.getElementById('input-room-code');
+                        const code = inputCode ? inputCode.value.trim() : '';
+                        if (!code) {
+                            alert("Lütfen katılmak istediğiniz oda kodunu girin!");
+                            return;
+                        }
+                        this.addLog("Odaya bağlanılıyor...", "system");
+                        const res = await this.multiplayer.joinRoom(code, playerName);
+                        if (!res.success) {
+                            alert(res.reason);
+                            return;
+                        }
+                        const roomBadge = document.getElementById('room-code-badge-view');
+                        const roomText = document.getElementById('room-code-text');
+                        const lobbyDisplay = document.getElementById('lobby-room-code-display');
+
+                        if (roomBadge && roomText) {
+                            roomText.textContent = `Oda: #${res.roomCode}`;
+                            roomBadge.style.display = 'inline-flex';
+                        }
+                        if (lobbyDisplay) {
+                            lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
+                        }
+
+                        if (this.modalStart) this.modalStart.classList.remove('active');
+                        const modalLobby = document.getElementById('modal-lobby');
+                        if (modalLobby) modalLobby.classList.add('active');
+
+                        this.renderLobbySeats(this.multiplayer.seats);
+                        this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
+
+                        this.addLog(`Odaya başarıyla bağlandınız! Koltuk: ${res.seatIndex + 1}`, "system");
+                        return;
+                    }
+
+                    if (this.modalStart) this.modalStart.classList.remove('active');
+                    this.game.entryBet = betAmountSelection;
+                    this.game.partnerMode = isPartnerSelection;
+                    this.game.progressiveMode = isProgressiveSelection;
+                    this.game.startNewGame(this.roundCountSelection);
+                    this.syncRackFromHand();
+                    this.renderBoard();
+                    this.addLog("Oyun başladı! Taşlar dağıtıldı.", "system");
+                    try { audio.playShuffle(); } catch (e) {}
+                    
+                    if (this.game.turn !== 0) {
+                        this.triggerBotTurns();
+                    }
+                } catch (err) {
+                    console.error("Game start fallback triggered:", err);
+                    if (this.modalStart) this.modalStart.classList.remove('active');
+                    this.game.startNewGame(this.roundCountSelection || 3);
+                    this.syncRackFromHand();
+                    this.renderBoard();
                 }
-                if (lobbyDisplay) {
-                    lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
-                }
-
-                this.modalStart.classList.remove('active');
-                const modalLobby = document.getElementById('modal-lobby');
-                if (modalLobby) modalLobby.classList.add('active');
-
-                this.renderLobbySeats(this.multiplayer.seats);
-                this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
-
-                this.addLog(`Oda oluşturuldu! Kod: ${res.roomCode}`, "system");
-                return;
-            } else if (roomModeSelection === 'join') {
-                const inputCode = document.getElementById('input-room-code');
-                const code = inputCode ? inputCode.value.trim() : '';
-                if (!code) {
-                    alert("Lütfen katılmak istediğiniz oda kodunu girin!");
-                    return;
-                }
-                this.addLog("Odaya bağlanılıyor...", "system");
-                const res = await this.multiplayer.joinRoom(code, playerName);
-                if (!res.success) {
-                    alert(res.reason);
-                    return;
-                }
-                const roomBadge = document.getElementById('room-code-badge-view');
-                const roomText = document.getElementById('room-code-text');
-                const lobbyDisplay = document.getElementById('lobby-room-code-display');
-
-                if (roomBadge && roomText) {
-                    roomText.textContent = `Oda: #${res.roomCode}`;
-                    roomBadge.style.display = 'inline-flex';
-                }
-                if (lobbyDisplay) {
-                    lobbyDisplay.textContent = `Oda: #${res.roomCode}`;
-                }
-
-                this.modalStart.classList.remove('active');
-                const modalLobby = document.getElementById('modal-lobby');
-                if (modalLobby) modalLobby.classList.add('active');
-
-                this.renderLobbySeats(this.multiplayer.seats);
-                this.multiplayer.onRoomStateChanged = (seats) => this.renderLobbySeats(seats);
-
-                this.addLog(`Odaya başarıyla bağlandınız! Koltuk: ${res.seatIndex + 1}`, "system");
-                return;
-            }
-
-            this.modalStart.classList.remove('active');
-            this.game.entryBet = betAmountSelection;
-            this.game.partnerMode = isPartnerSelection;
-            this.game.progressiveMode = isProgressiveSelection;
-            this.game.startNewGame(this.roundCountSelection);
-            this.syncRackFromHand();
-            this.renderBoard();
-            this.addLog("Oyun başladı! Taşlar dağıtıldı.", "system");
-            audio.playShuffle();
-            
-            if (this.game.turn !== 0) {
-                this.triggerBotTurns();
-            }
-        });
+            });
+        }
 
         const btnLobbyCopy = document.getElementById('btn-lobby-copy-link');
         if (btnLobbyCopy) {

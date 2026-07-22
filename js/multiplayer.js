@@ -30,7 +30,23 @@ class MultiplayerManager {
         return `OKEY-${code}`;
     }
 
-    initHost(roomCode = null, playerName = "Siz") {
+    loadPeerJsScript() {
+        if (typeof Peer !== 'undefined') return Promise.resolve(true);
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js';
+            script.async = true;
+            script.onload = () => resolve(true);
+            script.onerror = () => {
+                console.warn("PeerJS CDN could not be loaded. Operating in Local/Bot mode.");
+                resolve(false);
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    async initHost(roomCode = null, playerName = "Siz") {
+        await this.loadPeerJsScript();
         return new Promise((resolve) => {
             this.isHost = true;
             this.roomCode = roomCode || this.generateRoomCode();
@@ -177,7 +193,8 @@ class MultiplayerManager {
         }
     }
 
-    joinRoom(roomCode, playerName = "Oyuncu") {
+    async joinRoom(roomCode, playerName = "Oyuncu") {
+        await this.loadPeerJsScript();
         return new Promise((resolve) => {
             this.isHost = false;
             this.roomCode = roomCode.toUpperCase().trim();
