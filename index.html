@@ -8,6 +8,57 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
+    <style>
+        @keyframes giftFloat {
+            0% { transform: translate(-50%, -50%) scale(0.2) rotate(-15deg); opacity: 0; }
+            25% { transform: translate(-50%, -65%) scale(1.5) rotate(10deg); opacity: 1; }
+            70% { transform: translate(-50%, -85%) scale(1.2) rotate(-5deg); opacity: 1; }
+            100% { transform: translate(-50%, -130%) scale(0.8) rotate(0deg); opacity: 0; }
+        }
+        .floating-gift-anim {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            z-index: 9999;
+            font-size: 52px;
+            pointer-events: none;
+            animation: giftFloat 2.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            filter: drop-shadow(0 6px 16px rgba(0,0,0,0.6));
+        }
+        .gift-card-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 12px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .gift-card-btn:hover {
+            background: rgba(255, 183, 77, 0.15);
+            border-color: #ffb74d;
+            transform: translateY(-2px);
+        }
+        .btn-send-gift-trigger {
+            background: rgba(255, 183, 77, 0.2);
+            border: 1px solid rgba(255, 183, 77, 0.5);
+            color: #ffe082;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+            margin-left: 6px;
+            transition: all 0.2s;
+        }
+        .btn-send-gift-trigger:hover {
+            background: rgba(255, 183, 77, 0.4);
+            color: #fff;
+        }
+    </style>
     <script>
         window.addEventListener('error', function(e) {
             var box = document.getElementById('on-screen-debug-log');
@@ -71,9 +122,10 @@
                     <span id="room-code-text">Oda: #OKEY-----</span>
                     <button class="btn btn-sm btn-secondary" id="btn-copy-room-link" style="padding: 2px 6px; font-size: 11px;">📋 Linki Kopyala</button>
                 </div>
-                <div class="user-chips-badge" id="user-chips-badge-view" style="display: flex; align-items: center; gap: 6px; background: rgba(0, 230, 118, 0.15); border: 1.5px solid rgba(0, 230, 118, 0.35); border-radius: 8px; padding: 6px 12px; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #a5d6a7; margin-right: 12px; box-shadow: 0 4px 10px rgba(0, 230, 118, 0.15);">
-                    <span style="font-size: 15px;">💰</span>
+                <div class="user-chips-badge" id="user-chips-badge-view" style="display: flex; align-items: center; gap: 6px; background: rgba(0, 230, 118, 0.15); border: 1.5px solid rgba(0, 230, 118, 0.35); border-radius: 8px; padding: 5px 10px; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #a5d6a7; margin-right: 12px; box-shadow: 0 4px 10px rgba(0, 230, 118, 0.15);">
+                    <span style="font-size: 15px;">🪙</span>
                     <span id="header-user-chips">5000 Çip</span>
+                    <button type="button" class="btn btn-sm btn-primary" id="btn-claim-free-chips" title="1000 Bedava Çip Al" style="padding: 2px 6px; font-size: 10px; margin-left: 4px;">+1000 🎁</button>
                 </div>
                 <div class="deck-status">
                     <span class="deck-icon">🎴</span>
@@ -376,6 +428,21 @@
         </div>
     </div>
 
+    <!-- MODAL: FUN GIFTS / HEDİYE GÖNDER -->
+    <div class="modal-overlay" id="modal-send-gift">
+        <div class="modal-card" style="max-width: 480px; text-align: center;">
+            <h2 class="outfit-title" style="color: #ffb74d;">🎁 Hediye & İkram Gönder</h2>
+            <p id="gift-target-player-name" style="margin-bottom: 6px; color: #fff; font-weight: 700; font-size: 15px;">Oyuncuya İkram Gönderin</p>
+            <p id="gift-user-chip-balance" style="margin-bottom: 18px; color: #81c784; font-weight: 700; font-size: 13px;">Bakiye: 5,000 Çip 🪙</p>
+            
+            <div class="gift-grid" id="gift-options-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+                <!-- Gift buttons rendered via JS -->
+            </div>
+
+            <button type="button" class="btn btn-secondary" id="btn-close-gift-modal" style="width: 100%;">Kapat</button>
+        </div>
+    </div>
+
     <!-- MODAL: ROUND OVER SCOREBOARD -->
     <div class="modal-overlay" id="modal-round-over">
         <div class="modal-card" style="max-width: 600px;">
@@ -417,8 +484,8 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
-    <script src="js/multiplayer.js?v=17.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=17.0.0';}"></script>
-    <script src="js/app.js?v=17.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=17.0.0';}"></script>
+    <script src="js/multiplayer.js?v=18.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=18.0.0';}"></script>
+    <script src="js/app.js?v=18.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=18.0.0';}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof startApp === 'function') {

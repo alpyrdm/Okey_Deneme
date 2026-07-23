@@ -2272,6 +2272,32 @@ class OkeyUI {
             });
         }
 
+        const btnClaimChips = document.getElementById('btn-claim-free-chips');
+        if (btnClaimChips) {
+            btnClaimChips.addEventListener('click', () => {
+                const myPlayer = this.getMyPlayer();
+                myPlayer.chips += 1000;
+                localStorage.setItem('okey101_user_chips', myPlayer.chips);
+                this.renderBoard();
+                this.addLog("🎁 1,000 Bedava Çip hesabınıza yüklendi!", "system");
+                audio.playWin();
+            });
+        }
+
+        const btnCloseGiftModal = document.getElementById('btn-close-gift-modal');
+        if (btnCloseGiftModal) {
+            btnCloseGiftModal.addEventListener('click', () => {
+                const modal = document.getElementById('modal-send-gift');
+                if (modal) modal.classList.remove('active');
+            });
+        }
+
+        this.multiplayer.onGiftReceived = (data) => {
+            this.showFloatingGiftAnim(data.targetSeat, data.giftEmoji);
+            this.addLog(`🎁 [HEDİYE] ${data.senderName} ➔ ${data.targetName} adlı oyuncuya ${data.giftName} gönderdi! ${data.giftEmoji}`, "player-action");
+            audio.playClack(0.6, 1.4);
+        };
+
         this.multiplayer.onRoomClosed = () => {
             const modalHostLeft = document.getElementById('modal-host-left');
             if (modalHostLeft) {
@@ -2949,6 +2975,10 @@ class OkeyUI {
     triggerBotTurns() {
         if (this.game.status !== 'playing') return;
 
+        if (this.multiplayer && this.multiplayer.roomCode && !this.multiplayer.isHost) {
+            return;
+        }
+
         const currentP = this.game.players[this.game.turn];
         if (!currentP || !currentP.isBot || currentP.isHuman) {
             this.renderBoard();
@@ -2963,61 +2993,55 @@ class OkeyUI {
             return;
         }
 
-        const nextBotPlay = () => {
-            const nowP = this.game.players[this.game.turn];
-            if (this.isMyTurn() || !nowP || !nowP.isBot || nowP.isHuman || this.game.status !== 'playing') {
-                if (this.game.status === 'round_end') {
-                    this.showRoundOver();
-                } else {
-                    this.renderBoard();
-                }
+        if (this.botTurnTimeoutId) {
+            clearTimeout(this.botTurnTimeoutId);
+        }
+
+        const currentBotIdx = this.game.turn;
+        this.renderBoard();
+
+        this.botTurnTimeoutId = setTimeout(() => {
+            if (this.game.status !== 'playing' || this.game.turn !== currentBotIdx) {
                 return;
             }
 
-            const currentBotIdx = this.game.turn;
-            this.renderBoard();
-
-            setTimeout(() => {
-                let logs = [];
-                try {
-                    logs = this.bot.playTurn(currentBotIdx);
-                } catch (e) {
-                    console.error("Bot play exception:", e);
-                    const bot = this.game.players[currentBotIdx];
-                    if (bot.hand.length > 0) {
-                        const tile = bot.hand[0];
-                        bot.hand.splice(0, 1);
-                        bot.discards.push(tile);
-                    }
-                    this.game.turn = (this.game.turn + 1) % 4;
-                    this.game.drawnThisTurn = false;
-                    this.game.discardTakenThisTurn = false;
-                    logs = [`⚠️ [Failsafe] ${bot.name} hata aldı ve turu tamamlandı.`];
+            let logs = [];
+            try {
+                logs = this.bot.playTurn(currentBotIdx);
+            } catch (e) {
+                console.error("Bot play exception:", e);
+                const bot = this.game.players[currentBotIdx];
+                if (bot && bot.hand && bot.hand.length > 0) {
+                    const tile = bot.hand.splice(0, 1)[0];
+                    bot.discards.push(tile);
                 }
-                logs.forEach(msg => {
-                    if (msg.includes("açtı")) {
-                        audio.playWin();
-                    } else if (msg.includes("attı")) {
-                        audio.playDiscard();
-                    } else {
-                        audio.playClack(0.4, 0.9);
-                    }
-                    this.addLog(msg);
-                });
+                this.game.turn = (this.game.turn + 1) % 4;
+                this.game.drawnThisTurn = false;
+                this.game.discardTakenThisTurn = false;
+                logs = [`⚠️ [Failsafe] ${bot ? bot.name : 'Bot'} hata aldı ve turu tamamlandı.`];
+            }
 
-                this.renderBoard();
-                this.checkIslekPenalty();
-                this.broadcastGameState();
-
-                if (this.game.status === 'round_end') {
-                    this.showRoundOver();
+            logs.forEach(msg => {
+                if (msg.includes("açtı")) {
+                    audio.playWin();
+                } else if (msg.includes("attı")) {
+                    audio.playDiscard();
                 } else {
-                    nextBotPlay();
+                    audio.playClack(0.4, 0.9);
                 }
-            }, this.botSpeed);
-        };
+                this.addLog(msg);
+            });
 
-        nextBotPlay();
+            this.renderBoard();
+            this.checkIslekPenalty();
+            this.broadcastGameState();
+
+            if (this.game.status === 'round_end') {
+                this.showRoundOver();
+            } else if (this.game.players[this.game.turn].isBot) {
+                this.triggerBotTurns();
+            }
+        }, this.botSpeed || 800);
     }
 
     renderBoard() {
@@ -3142,8 +3166,18 @@ class OkeyUI {
                     const partnerName = this.game.players[partnerIdx].name || (partnerIdx === 0 ? "Siz" : (partnerIdx === 1 ? "Metin" : (partnerIdx === 2 ? "Canan" : "Oya")));
                     displayName = `${displayName} (Eş: ${partnerName})`;
                 }
-                nameEl.textContent = displayName + (player.hand.length > 0 ? ` (${player.hand.length} Taş)` : '');
+                const handInfo = player.hand.length > 0 ? ` (${player.hand.length} Taş)` : '';
+                const giftBtn = (idx !== this.getMySeatIndex()) ? `<button type="button" class="btn-send-gift-trigger" data-seat="${idx}" title="Hediye/İkram Gönder">🎁 Hediye</button>` : '';
+                nameEl.innerHTML = `${displayName}${handInfo} ${giftBtn}`;
             }
+        });
+
+        document.querySelectorAll('.btn-send-gift-trigger').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const targetIdx = parseInt(e.currentTarget.dataset.seat);
+                this.openGiftModal(targetIdx);
+            });
         });
 
         const teamAScore = this.game.players[0].score + this.game.players[2].score;
@@ -3154,6 +3188,106 @@ class OkeyUI {
 
         const teamBValEl = document.getElementById('team-b-score-val');
         if (teamBValEl) teamBValEl.textContent = `${teamBScore} Puan`;
+    }
+
+    openGiftModal(targetSeatIdx) {
+        this.selectedGiftTargetIdx = targetSeatIdx;
+        const targetPlayer = this.game.players[targetSeatIdx];
+        const modal = document.getElementById('modal-send-gift');
+        const targetNameEl = document.getElementById('gift-target-player-name');
+        const balanceEl = document.getElementById('gift-user-chip-balance');
+        const grid = document.getElementById('gift-options-grid');
+
+        if (!modal || !targetPlayer) return;
+
+        const FUN_GIFTS = [
+            { id: 'tea', name: 'Tavşan Kanı Çay', emoji: '☕', price: 50, desc: 'Sıcak tavşan kanı çay' },
+            { id: 'coffee', name: 'Türk Kahvesi', emoji: '☕', price: 100, desc: '40 yıl hatırı var' },
+            { id: 'simit', name: 'Çıtır Simit', emoji: '🍩', price: 50, desc: 'Taze gevrek simit' },
+            { id: 'watermelon', name: 'Buz Karpuz', emoji: '🍉', price: 50, desc: 'Buz gibi karpuz dilimi' },
+            { id: 'slipper', name: 'Anne Terliği', emoji: '👡💥', price: 100, desc: 'Kafaya anne terliği!' },
+            { id: 'kiss', name: 'Öpücük', emoji: '💋', price: 50, desc: 'Şapırtılı öpücük' }
+        ];
+
+        const myPlayer = this.getMyPlayer();
+        targetNameEl.textContent = `🎯 ${targetPlayer.name} adlı oyuncuya bir ikram gönderin:`;
+        balanceEl.textContent = `🪙 Mevcut Çipiniz: ${myPlayer.chips} Çip`;
+
+        grid.innerHTML = '';
+        FUN_GIFTS.forEach(gift => {
+            const card = document.createElement('div');
+            card.className = 'gift-card-btn';
+            card.innerHTML = `
+                <span style="font-size: 32px;">${gift.emoji}</span>
+                <span style="font-weight: 700; font-size: 13px; color: #fff;">${gift.name}</span>
+                <span style="font-size: 11px; color: #ffb74d; font-weight: 700;">${gift.price} Çip</span>
+                <span style="font-size: 10px; color: rgba(255,255,255,0.6);">${gift.desc}</span>
+            `;
+            card.addEventListener('click', () => {
+                this.sendGift(targetSeatIdx, gift);
+                modal.classList.remove('active');
+            });
+            grid.appendChild(card);
+        });
+
+        modal.classList.add('active');
+    }
+
+    sendGift(targetSeatIdx, gift) {
+        const mySeat = this.getMySeatIndex();
+        const myPlayer = this.getMyPlayer();
+        const targetPlayer = this.game.players[targetSeatIdx];
+
+        if (!myPlayer || !targetPlayer) return;
+
+        if (myPlayer.chips < gift.price) {
+            alert(`Yetersiz Çip! Hediye göndermek için en az ${gift.price} çipiniz olması gerekir. Üst menüden bedava çip alabilirsiniz.`);
+            return;
+        }
+
+        myPlayer.chips -= gift.price;
+        localStorage.setItem('okey101_user_chips', myPlayer.chips);
+        this.renderBoard();
+
+        const msg = `🎁 [HEDİYE] ${myPlayer.name} ➔ ${targetPlayer.name} adlı oyuncuya ${gift.name} gönderdi! ${gift.emoji} (-${gift.price} Çip)`;
+        this.addLog(msg, "player-action");
+        audio.playClack(0.6, 1.4);
+
+        this.showFloatingGiftAnim(targetSeatIdx, gift.emoji);
+
+        if (this.multiplayer && this.multiplayer.roomCode) {
+            const giftPacket = {
+                type: 'SEND_GIFT',
+                senderSeat: mySeat,
+                targetSeat: targetSeatIdx,
+                giftId: gift.id,
+                giftEmoji: gift.emoji,
+                giftName: gift.name,
+                senderName: myPlayer.name,
+                targetName: targetPlayer.name
+            };
+            if (this.multiplayer.isHost) {
+                this.multiplayer.broadcast(giftPacket);
+            } else if (this.multiplayer.hostConnection) {
+                this.multiplayer.hostConnection.send(giftPacket);
+            }
+        }
+    }
+
+    showFloatingGiftAnim(targetSeatIdx, emoji) {
+        const area = document.getElementById(`table-area-${targetSeatIdx}`);
+        if (!area) return;
+
+        const anim = document.createElement('div');
+        anim.className = 'floating-gift-anim';
+        anim.textContent = emoji;
+        area.appendChild(anim);
+
+        setTimeout(() => {
+            if (anim.parentNode) {
+                anim.parentNode.removeChild(anim);
+            }
+        }, 2200);
     }
 
     renderTableMelds() {

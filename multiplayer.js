@@ -192,6 +192,11 @@ class MultiplayerManager {
                 this.onActionReceived(data.action);
             }
             this.broadcast(data, conn);
+        } else if (data.type === 'SEND_GIFT') {
+            if (this.onGiftReceived) {
+                this.onGiftReceived(data);
+            }
+            this.broadcast(data, conn);
         }
     }
 
@@ -351,6 +356,10 @@ class MultiplayerManager {
                         } else if (data.type === 'ACTION') {
                             if (this.onActionReceived) {
                                 this.onActionReceived(data.action);
+                            }
+                        } else if (data.type === 'SEND_GIFT') {
+                            if (this.onGiftReceived) {
+                                this.onGiftReceived(data);
                             }
                         }
                     });
