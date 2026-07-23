@@ -2246,6 +2246,14 @@ class OkeyUI {
             });
         }
 
+        const btnClientToggleReady = document.getElementById('btn-client-toggle-ready');
+        if (btnClientToggleReady) {
+            btnClientToggleReady.addEventListener('click', () => {
+                this.multiplayer.toggleReady();
+                audio.playClack(0.5, 1.2);
+            });
+        }
+
         const btnLeaveLobby = document.getElementById('btn-leave-lobby');
         if (btnLeaveLobby) {
             btnLeaveLobby.addEventListener('click', () => {
@@ -3247,10 +3255,19 @@ class OkeyUI {
                 ? `<span style="background: rgba(33, 150, 243, 0.2); color: #90caf9; border: 1px solid rgba(33, 150, 243, 0.4); font-size: 11px; padding: 2px 6px; border-radius: 6px; font-weight: 700;">${teamLabels[idx]}</span>`
                 : `<span style="background: rgba(233, 30, 99, 0.2); color: #f48fb1; border: 1px solid rgba(233, 30, 99, 0.4); font-size: 11px; padding: 2px 6px; border-radius: 6px; font-weight: 700;">${teamLabels[idx]}</span>`;
 
+            const readyBadge = seat.isBot
+                ? `<span style="background: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid #4caf50; font-size: 10px; padding: 2px 6px; border-radius: 6px; font-weight: 700;">🤖 HAZIR</span>`
+                : (seat.isReady
+                    ? `<span style="background: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid #4caf50; font-size: 10px; padding: 2px 6px; border-radius: 6px; font-weight: 700;">✅ HAZIR</span>`
+                    : `<span style="background: rgba(255, 152, 0, 0.2); color: #ffb74d; border: 1px solid #ff9800; font-size: 10px; padding: 2px 6px; border-radius: 6px; font-weight: 700;">⏳ HAZIR DEĞİL</span>`);
+
             card.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <span style="font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 600;">Koltuk ${idx + 1}</span>
-                    ${teamBadge}
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        ${teamBadge}
+                        ${readyBadge}
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 18px;">
@@ -3276,6 +3293,42 @@ class OkeyUI {
                 audio.playClack(0.4, 1.2);
             });
         });
+
+        const btnStartMultiplayer = document.getElementById('btn-start-multiplayer-game');
+        const btnClientToggleReady = document.getElementById('btn-client-toggle-ready');
+
+        const allHumansReady = seats.every(s => s.isBot || s.isReady);
+
+        if (this.multiplayer.isHost) {
+            if (btnClientToggleReady) btnClientToggleReady.style.display = 'none';
+            if (btnStartMultiplayer) {
+                btnStartMultiplayer.style.display = 'block';
+                if (allHumansReady) {
+                    btnStartMultiplayer.disabled = false;
+                    btnStartMultiplayer.innerHTML = '🚀 Oyunu Başlat';
+                    btnStartMultiplayer.style.opacity = '1';
+                    btnStartMultiplayer.style.cursor = 'pointer';
+                } else {
+                    btnStartMultiplayer.disabled = true;
+                    btnStartMultiplayer.innerHTML = '⏳ Oyuncular Bekleniyor...';
+                    btnStartMultiplayer.style.opacity = '0.6';
+                    btnStartMultiplayer.style.cursor = 'not-allowed';
+                }
+            }
+        } else {
+            if (btnStartMultiplayer) btnStartMultiplayer.style.display = 'none';
+            if (btnClientToggleReady) {
+                btnClientToggleReady.style.display = 'block';
+                const mySeatObj = seats[this.multiplayer.mySeatIndex];
+                if (mySeatObj && mySeatObj.isReady) {
+                    btnClientToggleReady.innerHTML = '✅ Hazırsınız (İptal Et)';
+                    btnClientToggleReady.className = 'btn btn-success';
+                } else {
+                    btnClientToggleReady.innerHTML = '👉 Hazır Ol';
+                    btnClientToggleReady.className = 'btn btn-primary';
+                }
+            }
+        }
     }
 
     handleTableMeldClick(targetPlayerIdx, meldIdx, targetTile) {

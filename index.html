@@ -355,9 +355,10 @@
             </div>
 
             <div class="lobby-actions" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px;">
-                <button type="button" class="btn btn-secondary" id="btn-lobby-copy-link" style="flex: 1; min-width: 150px;">🔗 Linki Kopyala</button>
-                <button type="button" class="btn btn-secondary" id="btn-lobby-copy-code" style="flex: 1; min-width: 150px;">📋 Kodu Kopyala</button>
+                <button type="button" class="btn btn-secondary" id="btn-lobby-copy-link" style="flex: 1; min-width: 140px;">🔗 Linki Kopyala</button>
+                <button type="button" class="btn btn-secondary" id="btn-lobby-copy-code" style="flex: 1; min-width: 140px;">📋 Kodu Kopyala</button>
                 <button type="button" class="btn btn-primary" id="btn-start-multiplayer-game" style="flex: 1.5; min-width: 160px;">🚀 Oyunu Başlat</button>
+                <button type="button" class="btn btn-success" id="btn-client-toggle-ready" style="flex: 1.5; min-width: 160px; display: none;">👉 Hazır Ol</button>
                 <button type="button" class="btn btn-outline" id="btn-leave-lobby">Ayrıl</button>
             </div>
         </div>
@@ -416,8 +417,8 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
-    <script src="js/multiplayer.js?v=15.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=15.0.0';}"></script>
-    <script src="js/app.js?v=15.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=15.0.0';}"></script>
+    <script src="js/multiplayer.js?v=16.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=16.0.0';}"></script>
+    <script src="js/app.js?v=16.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=16.0.0';}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof startApp === 'function') {

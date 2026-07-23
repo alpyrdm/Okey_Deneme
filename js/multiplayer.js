@@ -12,10 +12,10 @@ class MultiplayerManager {
         this.roomCode = null;
         this.mySeatIndex = 0;
         this.seats = [
-            { id: null, name: 'Siz', isBot: false },
-            { id: null, name: 'Bot 1', isBot: true },
-            { id: null, name: 'Bot 2', isBot: true },
-            { id: null, name: 'Bot 3', isBot: true }
+            { id: null, name: 'Siz', isBot: false, isReady: true },
+            { id: null, name: 'Bot 1', isBot: true, isReady: true },
+            { id: null, name: 'Bot 2', isBot: true, isReady: true },
+            { id: null, name: 'Bot 3', isBot: true, isReady: true }
         ];
         this.onActionReceived = null;
         this.onRoomStateChanged = null;
@@ -45,12 +45,12 @@ class MultiplayerManager {
         });
     }
 
-    async initHost(roomCode = null, playerName = "Siz") {
+    async initHost(roomCode = null, playerName = "Kurucu") {
         await this.loadPeerJsScript();
         return new Promise((resolve) => {
             this.isHost = true;
             this.roomCode = roomCode || this.generateRoomCode();
-            this.seats[0] = { id: 'host', name: playerName, isBot: false };
+            this.seats[0] = { id: 'host', name: playerName, isBot: false, isReady: true };
             this.mySeatIndex = 0;
 
             const peerId = `okey101-${this.roomCode}`;
@@ -103,7 +103,12 @@ class MultiplayerManager {
         if (data.type === 'JOIN_REQUEST') {
             const emptySeatIdx = this.seats.findIndex(s => s.isBot);
             if (emptySeatIdx !== -1) {
-                this.seats[emptySeatIdx] = { id: conn.peer, name: data.playerName || `Oyuncu ${emptySeatIdx + 1}`, isBot: false };
+                this.seats[emptySeatIdx] = {
+                    id: conn.peer,
+                    name: data.playerName || `Oyuncu ${emptySeatIdx + 1}`,
+                    isBot: false,
+                    isReady: false
+                };
                 conn.seatIndex = emptySeatIdx;
 
                 conn.send({
@@ -118,6 +123,18 @@ class MultiplayerManager {
                     seats: this.seats
                 });
 
+                if (this.onRoomStateChanged) {
+                    this.onRoomStateChanged(this.seats);
+                }
+            }
+        } else if (data.type === 'PLAYER_READY_TOGGLE') {
+            const sIdx = data.seatIndex !== undefined ? data.seatIndex : conn.seatIndex;
+            if (sIdx !== undefined && this.seats[sIdx]) {
+                this.seats[sIdx].isReady = !!data.isReady;
+                this.broadcast({
+                    type: 'ROOM_STATE_UPDATE',
+                    seats: this.seats
+                });
                 if (this.onRoomStateChanged) {
                     this.onRoomStateChanged(this.seats);
                 }
@@ -143,7 +160,7 @@ class MultiplayerManager {
         } else if (data.type === 'LEAVE_ROOM') {
             const seatIdx = data.seatIndex !== undefined ? data.seatIndex : conn.seatIndex;
             if (seatIdx !== undefined && seatIdx !== -1) {
-                this.seats[seatIdx] = { id: null, name: `Bot ${seatIdx}`, isBot: true };
+                this.seats[seatIdx] = { id: null, name: `Bot ${seatIdx}`, isBot: true, isReady: true };
                 this.connections = this.connections.filter(c => c !== conn);
                 this.broadcast({
                     type: 'ROOM_STATE_UPDATE',
@@ -185,11 +202,28 @@ class MultiplayerManager {
         }
         this.roomCode = null;
         this.seats = [
-            { id: null, name: 'Siz', isBot: false },
-            { id: null, name: 'Bot 1', isBot: true },
-            { id: null, name: 'Bot 2', isBot: true },
-            { id: null, name: 'Bot 3', isBot: true }
+            { id: null, name: 'Siz', isBot: false, isReady: true },
+            { id: null, name: 'Bot 1', isBot: true, isReady: true },
+            { id: null, name: 'Bot 2', isBot: true, isReady: true },
+            { id: null, name: 'Bot 3', isBot: true, isReady: true }
         ];
+        if (this.onRoomStateChanged) {
+            this.onRoomStateChanged(this.seats);
+        }
+    }
+
+    toggleReady() {
+        if (this.isHost) return;
+        const mySeat = this.seats[this.mySeatIndex];
+        if (!mySeat) return;
+        mySeat.isReady = !mySeat.isReady;
+        if (this.hostConnection && this.hostConnection.open) {
+            this.hostConnection.send({
+                type: 'PLAYER_READY_TOGGLE',
+                seatIndex: this.mySeatIndex,
+                isReady: mySeat.isReady
+            });
+        }
         if (this.onRoomStateChanged) {
             this.onRoomStateChanged(this.seats);
         }
