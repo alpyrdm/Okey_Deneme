@@ -2175,6 +2175,9 @@ class OkeyUI {
                 this.game.round = data.gameData.round;
                 this.game.status = 'playing';
             }
+            this.syncRackFromHand();
+            this.renderBoard();
+        };
 
         this.multiplayer.onGameStateUpdateReceived = (data) => {
             if (!data || !data.gameData) return;
