@@ -2064,6 +2064,7 @@ class OkeyUI {
             roomCode = hashParams.get('room');
         }
         if (roomCode) {
+            const cleanCode = roomCode.toUpperCase().trim();
             const roomButtons = document.querySelectorAll('#room-mode-selection .btn-toggle');
             roomButtons.forEach(b => b.classList.remove('active'));
             const joinBtn = document.querySelector('#room-mode-selection [data-room-mode="join"]');
@@ -2073,7 +2074,28 @@ class OkeyUI {
             if (joinGroup) joinGroup.style.display = 'block';
             
             const inputCode = document.getElementById('input-room-code');
-            if (inputCode) inputCode.value = roomCode.toUpperCase();
+            if (inputCode) inputCode.value = cleanCode;
+
+            if (this.btnStartGame) {
+                this.btnStartGame.textContent = `🚪 Odaya Katıl (#${cleanCode})`;
+            }
+
+            let inviteNotice = document.getElementById('invite-link-notice');
+            if (!inviteNotice) {
+                inviteNotice = document.createElement('div');
+                inviteNotice.id = 'invite-link-notice';
+                inviteNotice.style.cssText = 'background: rgba(33, 150, 243, 0.2); border: 1.5px solid #2196f3; padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; text-align: center; color: #fff; font-weight: 600; font-size: 14px;';
+                const startCard = document.querySelector('#modal-start .modal-card');
+                if (startCard && startCard.children.length >= 2) {
+                    startCard.insertBefore(inviteNotice, startCard.children[2]);
+                }
+            }
+            inviteNotice.innerHTML = `🔗 <b>Davet Linki İle Geldiniz!</b><br><span style="font-size: 13px; color: #90caf9;">Oda kodunuz (#${cleanCode}) tanımlandı. Lütfen adınızı yazıp <b>Odaya Katılın</b>.</span>`;
+
+            setTimeout(() => {
+                const inputName = document.getElementById('input-player-name');
+                if (inputName) inputName.focus();
+            }, 300);
         }
     }
 
@@ -2200,6 +2222,23 @@ class OkeyUI {
                     });
                 } else {
                     prompt("Oda davet linkiniz:", link);
+                }
+            });
+        }
+
+        const btnLobbyCopyCode = document.getElementById('btn-lobby-copy-code');
+        if (btnLobbyCopyCode) {
+            btnLobbyCopyCode.addEventListener('click', () => {
+                const code = this.multiplayer.roomCode || '';
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(code).then(() => {
+                        this.addLog(`Oda kodu panoya kopyalandı: ${code}`, "system");
+                        audio.playClack(0.5, 1.3);
+                    }).catch(() => {
+                        prompt("Oda kodunuz:", code);
+                    });
+                } else {
+                    prompt("Oda kodunuz:", code);
                 }
             });
         }
