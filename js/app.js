@@ -2238,6 +2238,15 @@ class OkeyUI {
                 this.game.dealer = data.gameData.dealer;
                 this.game.round = data.gameData.round;
                 this.game.status = 'playing';
+
+                // Map seats correctly on client
+                this.multiplayer.seats.forEach((seat, idx) => {
+                    if (this.game.players[idx]) {
+                        this.game.players[idx].name = seat.name;
+                        this.game.players[idx].isBot = seat.isBot;
+                        this.game.players[idx].isHuman = !seat.isBot;
+                    }
+                });
             }
             this.syncRackFromHand();
             this.renderBoard();
@@ -2274,12 +2283,6 @@ class OkeyUI {
                 if (modalLobby) modalLobby.classList.remove('active');
                 if (this.modalStart) this.modalStart.classList.remove('active');
 
-                // Map seats to player names
-                this.multiplayer.seats.forEach((seat, idx) => {
-                    this.game.players[idx].name = seat.name;
-                    this.game.players[idx].isBot = seat.isBot;
-                });
-
                 const activeTypeBtn = document.querySelector('#game-type-selection .btn-toggle.active');
                 const isPartner = activeTypeBtn ? activeTypeBtn.dataset.type === 'partner' : false;
 
@@ -2295,7 +2298,18 @@ class OkeyUI {
                 this.game.entryBet = currentBet;
                 this.game.partnerMode = isPartner;
                 this.game.progressiveMode = isProgressive;
+
+                // Start game first, THEN map seats so startNewGame doesn't overwrite player isBot/isHuman!
                 this.game.startNewGame(currentRounds);
+
+                this.multiplayer.seats.forEach((seat, idx) => {
+                    if (this.game.players[idx]) {
+                        this.game.players[idx].name = seat.name;
+                        this.game.players[idx].isBot = seat.isBot;
+                        this.game.players[idx].isHuman = !seat.isBot;
+                    }
+                });
+
                 this.syncRackFromHand();
                 this.renderBoard();
                 this.addLog("Masadaki oyuncular yerleşti! Oyun başladı.", "system");
@@ -2321,7 +2335,7 @@ class OkeyUI {
                     }
                 });
 
-                if (this.game.turn !== 0 && this.game.players[this.game.turn].isBot) {
+                if (this.game.players[this.game.turn].isBot) {
                     this.triggerBotTurns();
                 }
             });
@@ -2400,7 +2414,7 @@ class OkeyUI {
 
         // Discard pile: Throw tile to end turn (Benim Attıklarım)
         this.discardPile.addEventListener('click', () => {
-            if (this.game.turn !== 0) return;
+            if (!this.isMyTurn()) return;
             if (!this.game.drawnThisTurn) {
                 this.addLog("Önce desteden veya sol oyuncudan (Bana Atılan) taş çekmelisiniz!", "system");
                 audio.playError();
@@ -2409,14 +2423,18 @@ class OkeyUI {
 
             if (this.selectedTileIds.size === 1) {
                 const tileId = Array.from(this.selectedTileIds)[0];
-                const success = this.game.discardTile(0, tileId);
+                const mySeat = this.getMySeatIndex();
+                const success = this.game.discardTile(mySeat, tileId);
                 if (success) {
                     this.removeTileFromRackGrid(tileId);
                     this.selectedTileIds.clear();
                     audio.playClack(0.6, 0.9);
                     this.renderBoard();
                     this.addLog("Taş attınız. Sıra diğer oyuncuda.");
-                    this.triggerBotTurns();
+                    this.broadcastGameState();
+                    if (this.multiplayer.isHost && this.game.players[this.game.turn].isBot) {
+                        this.triggerBotTurns();
+                    }
                 } else {
                     audio.playError();
                     this.addLog("Seçtiğiniz taş atılamadı!", "system");
@@ -2587,7 +2605,7 @@ class OkeyUI {
                     
                     if (this.game.status === 'round_end') {
                         this.showRoundOver();
-                    } else {
+                    } else if (this.multiplayer.isHost && this.game.players[this.game.turn].isBot) {
                         this.triggerBotTurns();
                     }
                 } else {
@@ -3197,10 +3215,13 @@ class OkeyUI {
     }
 
     renderDiscardPile() {
-        // 1. Render Left Discard Pile (Bana Atılan Taş - Player 3)
+        const mySeatIdx = this.getMySeatIndex();
+        const leftPlayerIdx = (mySeatIdx + 3) % 4;
+
+        // 1. Render Left Discard Pile (Bana Atılan Taş - Left Player)
         if (this.leftDiscardContainer) {
             this.leftDiscardContainer.innerHTML = '';
-            const leftDiscards = this.game.players[3].discards;
+            const leftDiscards = this.game.players[leftPlayerIdx].discards;
             if (leftDiscards.length > 0) {
                 const tile = leftDiscards[leftDiscards.length - 1];
                 if (this.leftDiscardPlaceholder) this.leftDiscardPlaceholder.style.display = 'none';
@@ -3209,7 +3230,7 @@ class OkeyUI {
                 tileEl.className = `tile-3d tile-${tile.color} ${tile.isOkey ? 'wildcard' : ''} ${tile.isFakeJoker ? 'fake-joker' : ''}`;
                 tileEl.innerHTML = this.getTileHTML(tile);
                 
-                if (this.game.turn === 0 && !this.game.drawnThisTurn) {
+                if (this.isMyTurn() && !this.game.drawnThisTurn) {
                     tileEl.setAttribute('draggable', 'true');
                     tileEl.addEventListener('dragstart', (e) => {
                         e.dataTransfer.setData('text/plain', tile.id);
@@ -3222,10 +3243,10 @@ class OkeyUI {
             }
         }
 
-        // 2. Render Right Discard Pile (Benim Attığım - Player 0)
+        // 2. Render Right Discard Pile (Benim Attığım - My Discard)
         if (this.activeDiscardContainer) {
             this.activeDiscardContainer.innerHTML = '';
-            const myDiscards = this.game.players[0].discards;
+            const myDiscards = this.game.players[mySeatIdx].discards;
             if (myDiscards.length > 0) {
                 const tile = myDiscards[myDiscards.length - 1];
                 if (this.discardPlaceholder) this.discardPlaceholder.style.display = 'none';
@@ -3241,8 +3262,9 @@ class OkeyUI {
     }
 
     reconcileRackWithHand() {
-        if (!this.game || !this.game.players || !this.game.players[0]) return;
-        const hand = this.game.players[0].hand;
+        const myPlayer = this.getMyPlayer();
+        if (!myPlayer) return;
+        const hand = myPlayer.hand;
         const handTileIds = new Set(hand.map(t => t.id));
 
         // 1. Clear grid slots whose tiles are no longer in player's hand
@@ -3481,7 +3503,7 @@ class OkeyUI {
             Array(24).fill(null)
         ];
 
-        const hand = this.game.players[0].hand;
+        const hand = this.getMyPlayer().hand;
         let index = 0;
         for (let r = 0; r < 2; r++) {
             for (let c = 0; c < 24; c++) {
@@ -3495,7 +3517,7 @@ class OkeyUI {
     }
 
     sortRackGroups() {
-        const hand = this.game.players[0].hand;
+        const hand = this.getMyPlayer().hand;
         const meldsInfo = this.bot.findAllPossibleMelds(hand);
         
         const meldTileIds = new Set(meldsInfo.melds.flat().map(t => t.id));
@@ -3551,7 +3573,7 @@ class OkeyUI {
     }
 
     sortRackPairs() {
-        const hand = this.game.players[0].hand;
+        const hand = this.getMyPlayer().hand;
         const pairs = this.findOptimalPairs(hand);
         const usedTileIds = new Set(pairs.flat().map(t => t.id));
         const leftovers = hand.filter(t => !usedTileIds.has(t.id));
