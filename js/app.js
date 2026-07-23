@@ -2265,7 +2265,7 @@ class OkeyUI {
             this.game.status = gd.status;
             this.game.drawnThisTurn = gd.drawnThisTurn;
 
-            this.syncRackFromHand();
+            this.reconcileRackWithHand();
             this.renderBoard();
 
             if (this.multiplayer.isHost && this.game.status === 'playing') {
