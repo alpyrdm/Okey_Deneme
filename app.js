@@ -1929,6 +1929,10 @@ class OkeyUI {
     }
 
     startGameDirectly() {
+        if (this.isConnectingToRoom) return;
+        this.isConnectingToRoom = true;
+        setTimeout(() => { this.isConnectingToRoom = false; }, 2000);
+
         try {
             const activeRoomBtn = document.querySelector('#room-mode-selection .btn-toggle.active');
             const roomMode = activeRoomBtn ? activeRoomBtn.dataset.roomMode : 'local';
@@ -1939,6 +1943,7 @@ class OkeyUI {
             if (!playerName) {
                 alert("Lütfen oyuna başlamadan veya odaya katılmadan önce adınızı giriniz!");
                 if (inputName) inputName.focus();
+                this.isConnectingToRoom = false;
                 return;
             }
 

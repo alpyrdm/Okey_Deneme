@@ -101,6 +101,18 @@ class MultiplayerManager {
 
     handleHostReceivedData(conn, data) {
         if (data.type === 'JOIN_REQUEST') {
+            const existingSeatIdx = this.seats.findIndex(s => s.id === conn.peer);
+            if (existingSeatIdx !== -1) {
+                conn.seatIndex = existingSeatIdx;
+                conn.send({
+                    type: 'JOIN_ACCEPT',
+                    seatIndex: existingSeatIdx,
+                    roomCode: this.roomCode,
+                    seats: this.seats
+                });
+                return;
+            }
+
             const emptySeatIdx = this.seats.findIndex(s => s.isBot);
             if (emptySeatIdx !== -1) {
                 this.seats[emptySeatIdx] = {
