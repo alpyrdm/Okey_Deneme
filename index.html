@@ -362,6 +362,18 @@
         </div>
     </div>
 
+    <!-- MODAL: HOST DISCONNECTED CHOICE -->
+    <div class="modal-overlay" id="modal-host-left">
+        <div class="modal-card" style="max-width: 480px; text-align: center;">
+            <h2 class="outfit-title" style="color: #ff9800;">Oda Kurucusu Ayrıldı</h2>
+            <p style="margin-bottom: 24px; color: rgba(255,255,255,0.85); font-size: 15px; line-height: 1.5;">Oda kurucusu oyundan ayrıldı. Oyuna botlarla devam etmek mi istersiniz, yoksa ana menüye dönmek mi?</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button type="button" class="btn btn-primary" id="btn-continue-with-bots" style="padding: 12px; font-size: 15px;">🤖 Botlarla Oyuna Devam Et</button>
+                <button type="button" class="btn btn-secondary" id="btn-exit-to-main-menu" style="padding: 12px; font-size: 15px;">🚪 Oyundan Çık (Ana Menüye Dön)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: ROUND OVER SCOREBOARD -->
     <div class="modal-overlay" id="modal-round-over">
         <div class="modal-card" style="max-width: 600px;">
@@ -403,8 +415,8 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
-    <script src="js/multiplayer.js?v=12.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=12.0.0';}"></script>
-    <script src="js/app.js?v=12.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=12.0.0';}"></script>
+    <script src="js/multiplayer.js?v=13.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=13.0.0';}"></script>
+    <script src="js/app.js?v=13.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=13.0.0';}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof startApp === 'function') {

@@ -2217,6 +2217,53 @@ class OkeyUI {
             });
         }
 
+        this.multiplayer.onRoomClosed = () => {
+            const modalHostLeft = document.getElementById('modal-host-left');
+            if (modalHostLeft) {
+                modalHostLeft.classList.add('active');
+            } else {
+                alert("Oda kurucusu ayrıldı.");
+                this.multiplayer.leaveRoom();
+                if (this.modalStart) this.modalStart.classList.add('active');
+            }
+        };
+
+        const btnContinueWithBots = document.getElementById('btn-continue-with-bots');
+        if (btnContinueWithBots) {
+            btnContinueWithBots.addEventListener('click', () => {
+                const modalHostLeft = document.getElementById('modal-host-left');
+                if (modalHostLeft) modalHostLeft.classList.remove('active');
+                
+                const mySeat = this.getMySeatIndex();
+                this.multiplayer.leaveRoom();
+                if (this.game && this.game.players) {
+                    this.game.players.forEach((p, idx) => {
+                        if (idx !== mySeat) {
+                            p.isBot = true;
+                            p.isHuman = false;
+                        }
+                    });
+                }
+                this.renderBoard();
+                this.addLog("Oda kurucusu ayrıldı. Oyuna botlarla devam ediliyor.", "system");
+                if (this.game && this.game.status === 'playing' && this.game.players[this.game.turn].isBot) {
+                    this.triggerBotTurns();
+                }
+            });
+        }
+
+        const btnExitToMainMenu = document.getElementById('btn-exit-to-main-menu');
+        if (btnExitToMainMenu) {
+            btnExitToMainMenu.addEventListener('click', () => {
+                const modalHostLeft = document.getElementById('modal-host-left');
+                if (modalHostLeft) modalHostLeft.classList.remove('active');
+                
+                this.multiplayer.leaveRoom();
+                if (this.modalStart) this.modalStart.classList.add('active');
+                this.addLog("Odadan ayrıldınız.", "system");
+            });
+        }
+
         this.multiplayer.onStartGameReceived = (data) => {
             const modalLobby = document.getElementById('modal-lobby');
             if (modalLobby) modalLobby.classList.remove('active');
@@ -2488,17 +2535,23 @@ class OkeyUI {
                 if (tile) selectedTiles.push(tile);
             });
 
-            if (selectedTiles.length === 0) {
-                this.addLog("Lütfen açmak istediğiniz perleri ıstakanızdan seçin veya 'Perleri Diz' butonuna basın.", "system");
+            let tilesToOpen = selectedTiles;
+            if (tilesToOpen.length === 0) {
+                const handMeldsInfo = this.bot.findAllPossibleMelds(myPlayer.hand);
+                tilesToOpen = handMeldsInfo.melds.flat();
+            }
+
+            if (tilesToOpen.length === 0) {
+                this.addLog("Açılacak geçerli per bulunamadı!", "system");
                 audio.playError();
                 return;
             }
 
-            const meldsInfo = this.bot.findAllPossibleMelds(selectedTiles);
+            const meldsInfo = this.bot.findAllPossibleMelds(tilesToOpen);
             
             const meldTileIds = new Set(meldsInfo.melds.flat().map(t => t.id));
-            const meldLeftovers = selectedTiles.filter(t => !meldTileIds.has(t.id));
-            if (meldLeftovers.length > 0) {
+            const meldLeftovers = tilesToOpen.filter(t => !meldTileIds.has(t.id));
+            if (meldLeftovers.length > 0 && selectedTiles.length > 0) {
                 this.addLog("Seçtiğiniz taşlar arasında per oluşturmayan fazla taş(lar) var. Lütfen sadece perleri seçin.", "system");
                 audio.playError();
                 return;
@@ -2513,6 +2566,7 @@ class OkeyUI {
                 this.clearRackOfTiles(meldsInfo.melds.flat());
                 this.renderBoard();
                 this.addLog(`Elinizi açtınız! Toplam per puanı: ${result.sum}`, "player-action");
+                this.broadcastGameState();
             } else {
                 audio.playError();
                 this.addLog(`El açma engellendi: ${result.reason}`, "system");
@@ -2538,22 +2592,29 @@ class OkeyUI {
                 if (tile) selectedTiles.push(tile);
             });
 
-            if (selectedTiles.length === 0) {
-                this.addLog("Lütfen açmak istediğiniz çiftleri ıstakanızdan seçin veya 'Çiftleri Diz' butonuna basın.", "system");
+            let pairsToOpen = [];
+            if (selectedTiles.length > 0) {
+                pairsToOpen = this.findOptimalPairs(selectedTiles);
+            } else {
+                pairsToOpen = this.findOptimalPairs(myPlayer.hand);
+            }
+
+            if (pairsToOpen.length === 0) {
+                this.addLog("Açılacak geçerli çift bulunamadı!", "system");
                 audio.playError();
                 return;
             }
 
-            const pairs = this.findOptimalPairs(selectedTiles);
-
-            const result = this.game.openPairs(0, pairs);
+            const mySeat = this.getMySeatIndex();
+            const result = this.game.openPairs(mySeat, pairsToOpen);
 
             if (result.success) {
                 audio.playWin();
                 this.selectedTileIds.clear();
-                this.clearRackOfTiles(pairs.flat());
+                this.clearRackOfTiles(pairsToOpen.flat());
                 this.renderBoard();
-                this.addLog(`Çift açtınız! (${pairs.length} Çift)`, "player-action");
+                this.addLog(`Çift açtınız! (${pairsToOpen.length} Çift)`, "player-action");
+                this.broadcastGameState();
             } else {
                 audio.playError();
                 this.addLog(`Çift açma engellendi: ${result.reason}`, "system");
@@ -2768,7 +2829,8 @@ class OkeyUI {
 
                     if (fit) {
                         const appendToStart = (fit.position === 'start');
-                        const addResult = this.game.addTileToTable(0, tile.id, pIdx, mIdx, appendToStart);
+                        const mySeat = this.getMySeatIndex();
+                        const addResult = this.game.addTileToTable(mySeat, tile.id, pIdx, mIdx, appendToStart);
                         
                         if (addResult.success) {
                             audio.playClack(0.5, 1.0);
@@ -2777,6 +2839,7 @@ class OkeyUI {
                             this.renderBoard();
                             this.updateSelectionIndicators();
                             this.addLog(`Siz, ${targetPlayer.name} adlı oyuncunun serine ${tile.color}-${tile.number} taşını işlediniz.`, "player-action");
+                            this.broadcastGameState();
                             processed = true;
                             break;
                         }
@@ -2802,7 +2865,8 @@ class OkeyUI {
 
             if (processableList.length > 0) {
                 const item = processableList[0];
-                const addResult = this.game.addTileToTable(0, item.tile.id, item.targetPlayerIdx, item.meldIdx, item.appendToStart);
+                const mySeat = this.getMySeatIndex();
+                const addResult = this.game.addTileToTable(mySeat, item.tile.id, item.targetPlayerIdx, item.meldIdx, item.appendToStart);
                 
                 if (addResult.success) {
                     processedCount++;
@@ -2820,6 +2884,7 @@ class OkeyUI {
             this.renderBoard();
             this.updateSelectionIndicators();
             this.addLog(`Toplam ${processedCount} adet taş başarıyla masadaki perlere otomatik işlendi!`, "player-action");
+            this.broadcastGameState();
         } else {
             audio.playError();
             this.addLog("Elinizde masadaki perlere işlenebilecek taş bulunamadı!", "system");
@@ -3172,14 +3237,16 @@ class OkeyUI {
     }
 
     handleTableMeldClick(targetPlayerIdx, meldIdx, targetTile) {
-        if (this.game.turn !== 0 || this.selectedTileIds.size !== 1) return;
+        if (!this.isMyTurn() || this.selectedTileIds.size !== 1) return;
         
+        const mySeat = this.getMySeatIndex();
+        const myPlayer = this.getMyPlayer();
         const selectedTileId = Array.from(this.selectedTileIds)[0];
-        const tile = this.game.players[0].hand.find(t => t.id === selectedTileId);
+        const tile = myPlayer.hand.find(t => t.id === selectedTileId);
         if (!tile) return;
 
         // Try retrieving Okey first
-        const okeyResult = this.game.tryRetrieveOkey(0, tile.id, targetPlayerIdx, meldIdx);
+        const okeyResult = this.game.tryRetrieveOkey(mySeat, tile.id, targetPlayerIdx, meldIdx);
         if (okeyResult.success) {
             audio.playClack(0.5, 1.4);
             this.selectedTileIds.clear();
@@ -3187,26 +3254,29 @@ class OkeyUI {
             this.addTileToFirstEmptySlot(okeyResult.okeyTile);
             this.renderBoard();
             this.addLog(okeyResult.message, "player-action");
+            this.broadcastGameState();
             return;
         }
 
-        let result = this.game.addTileToTable(0, tile.id, targetPlayerIdx, meldIdx, true);
+        let result = this.game.addTileToTable(mySeat, tile.id, targetPlayerIdx, meldIdx, true);
         if (result.success) {
             audio.playClack(0.5, 1.0);
             this.selectedTileIds.clear();
             this.removeTileFromRackGrid(tile.id);
             this.renderBoard();
             this.addLog(`Siz, ${this.game.players[targetPlayerIdx].name} adlı oyuncunun serine taş işlediniz.`, "player-action");
+            this.broadcastGameState();
             return;
         }
 
-        result = this.game.addTileToTable(0, tile.id, targetPlayerIdx, meldIdx, false);
+        result = this.game.addTileToTable(mySeat, tile.id, targetPlayerIdx, meldIdx, false);
         if (result.success) {
             audio.playClack(0.5, 1.0);
             this.selectedTileIds.clear();
             this.removeTileFromRackGrid(tile.id);
             this.renderBoard();
             this.addLog(`Siz, ${this.game.players[targetPlayerIdx].name} adlı oyuncunun serine taş işlediniz.`, "player-action");
+            this.broadcastGameState();
             return;
         }
 

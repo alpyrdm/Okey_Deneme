@@ -281,9 +281,12 @@ class MultiplayerManager {
                                 this.onStartGameReceived(data);
                             }
                         } else if (data.type === 'ROOM_CLOSED') {
-                            alert("Oda kurucusu ayrıldı, oda kapatıldı.");
-                            this.leaveRoom();
-                            if (this.onRoomClosed) this.onRoomClosed();
+                            if (this.onRoomClosed) {
+                                this.onRoomClosed();
+                            } else {
+                                alert("Oda kurucusu ayrıldı.");
+                                this.leaveRoom();
+                            }
                         } else if (data.type === 'GAME_STATE_UPDATE') {
                             if (this.onGameStateUpdateReceived) {
                                 this.onGameStateUpdateReceived(data);
