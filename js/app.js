@@ -2258,6 +2258,13 @@ class OkeyUI {
 
             this.syncRackFromHand();
             this.renderBoard();
+
+            if (this.multiplayer.isHost && this.game.status === 'playing') {
+                const currentP = this.game.players[this.game.turn];
+                if (currentP && currentP.isBot) {
+                    this.triggerBotTurns();
+                }
+            }
         };
 
         const btnStartMultiplayerGame = document.getElementById('btn-start-multiplayer-game');
@@ -2862,6 +2869,7 @@ class OkeyUI {
 
                 this.renderBoard();
                 this.checkIslekPenalty();
+                this.broadcastGameState();
 
                 if (this.game.status === 'round_end') {
                     this.showRoundOver();
@@ -3381,7 +3389,7 @@ class OkeyUI {
                 const pairsCount = pairs.length;
                 this.selectedSumIndicator.textContent = `Seçili: ${pairsCount} Çift`;
                 
-                const openedInMelds = player0.openedMelds.length > 0 && !player0.openedInPairs;
+                const openedInMelds = myPlayer.openedMelds.length > 0 && !myPlayer.openedInPairs;
 
                 if (openedInMelds) {
                     dynamicBadge.textContent = "Seri açtığınız için çift açamazsınız!";
@@ -3409,8 +3417,8 @@ class OkeyUI {
                 this.btnOpenMelds.disabled = true; // ALWAYS disable Elin Aç in Pair Mode
             } else {
                 // Meld Mode
-                const openedInPairs = player0.openedInPairs;
-                const required = this.game.getRequiredOpenThreshold(0);
+                const openedInPairs = myPlayer.openedInPairs;
+                const required = this.game.getRequiredOpenThreshold(this.getMySeatIndex());
                 this.selectedSumIndicator.textContent = `Seçili: ${totalSum} Puan`;
                 
                 const canAddNormal = !hasMeldLeftovers && validGroupsCount > 0;
