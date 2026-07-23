@@ -2072,6 +2072,9 @@ class OkeyUI {
             
             const joinGroup = document.getElementById('join-code-group');
             if (joinGroup) joinGroup.style.display = 'block';
+
+            const roomSettingsGroup = document.getElementById('room-settings-group');
+            if (roomSettingsGroup) roomSettingsGroup.style.display = 'none';
             
             const inputCode = document.getElementById('input-room-code');
             if (inputCode) inputCode.value = cleanCode;
