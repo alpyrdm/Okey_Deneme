@@ -3836,7 +3836,6 @@ class OkeyUI {
         }, 5000);
     }
 }
-}
 
 let ui;
 function startApp() {
