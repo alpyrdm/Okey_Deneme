@@ -4054,90 +4054,99 @@ class OkeyUI {
         const winnerIdx = this.game.players.findIndex(p => p.hand.length === 0);
         const winner = this.game.players[winnerIdx >= 0 ? winnerIdx : 0];
         
-        if (winnerIdx >= 0) {
-            if (this.game.partnerMode) {
-                const teamName = (winnerIdx === 0 || winnerIdx === 2) ? "Siz & Canan (Takım A)" : "Metin & Oya (Takım B)";
-                document.getElementById('round-winner-msg').textContent = `${winner.name} el açarak kazandı! Takımı ${teamName} çanağı paylaştı (kişi başı +${winner.lastWonChips} Çip)!`;
+        const subtitleEl = document.getElementById('round-winner-subtitle') || document.getElementById('round-winner-msg');
+        if (subtitleEl) {
+            if (winnerIdx >= 0) {
+                if (this.game.partnerMode) {
+                    const teamName = (winnerIdx === 0 || winnerIdx === 2) ? "Siz & Canan (Takım A)" : "Metin & Oya (Takım B)";
+                    subtitleEl.textContent = `${winner.name} el açarak kazandı! Takımı ${teamName} çanağı paylaştı (kişi başı +${winner.lastWonChips || 0} Çip)!`;
+                } else {
+                    subtitleEl.textContent = `${winner.name} el açarak kazandı ve +${winner.lastWonChips || 0} Çip aldı!`;
+                }
             } else {
-                document.getElementById('round-winner-msg').textContent = `${winner.name} el açarak kazandı ve +${winner.lastWonChips} Çip aldı!`;
+                subtitleEl.textContent = `El berabere bitti (deste tükendi). Çanak bir sonraki ele devrediyor (${this.game.rolledOverPot || 0} Çip)!`;
             }
-        } else {
-            document.getElementById('round-winner-msg').textContent = `El berabere bitti (deste tükendi). Çanak bir sonraki ele devrediyor (${this.game.rolledOverPot} Çip)!`;
         }
         
-        const list = document.getElementById('round-scores-list');
-        list.innerHTML = '';
+        const list = document.getElementById('round-scores-body') || document.getElementById('round-scores-list');
+        if (list) {
+            list.innerHTML = '';
 
-        this.game.players.forEach(player => {
-            const row = document.createElement('div');
-            row.className = 'score-table-row';
+            this.game.players.forEach(player => {
+                const row = document.createElement('div');
+                row.className = 'score-table-row';
 
-            const name = document.createElement('span');
-            name.className = 'player-name';
-            name.textContent = player.name;
+                const name = document.createElement('span');
+                name.className = 'player-name';
+                name.textContent = player.name;
 
-            const handSum = document.createElement('span');
-            handSum.textContent = player.lastHandSum !== undefined ? player.lastHandSum : '-';
+                const handSum = document.createElement('span');
+                handSum.textContent = player.lastHandSum !== undefined ? player.lastHandSum : '-';
 
-            const islekCeza = document.createElement('span');
-            islekCeza.className = 'islek-ceza';
-            const totalCeza = (player.lastIslekPenalty || 0) + (player.lastDiscardDrawPenalty || 0);
-            islekCeza.textContent = totalCeza > 0 ? `+${totalCeza}` : '0';
+                const islekCeza = document.createElement('span');
+                islekCeza.className = 'islek-ceza';
+                const totalCeza = (player.lastIslekPenalty || 0) + (player.lastDiscardDrawPenalty || 0);
+                islekCeza.textContent = totalCeza > 0 ? `+${totalCeza}` : '0';
 
-            const thisRoundTotal = document.createElement('span');
-            thisRoundTotal.className = 'this-round-total';
-            thisRoundTotal.textContent = player.lastRoundTotal > 0 ? `+${player.lastRoundTotal}` : player.lastRoundTotal;
+                const thisRoundTotal = document.createElement('span');
+                thisRoundTotal.className = 'this-round-total';
+                thisRoundTotal.textContent = player.lastRoundTotal > 0 ? `+${player.lastRoundTotal}` : (player.lastRoundTotal !== undefined ? player.lastRoundTotal : '0');
 
-            const total = document.createElement('span');
-            total.className = 'score-total';
-            const chipDiff = (player.lastWonChips || 0) - this.game.entryBet;
-            const chipDiffStr = chipDiff >= 0 ? `+${chipDiff}` : `${chipDiff}`;
-            total.innerHTML = `<span style="font-weight: 700;">${player.score} P</span><br><small style="color: ${chipDiff >= 0 ? '#00e676' : '#ff5252'}; font-size: 10px; font-weight: 600; font-family: Outfit, sans-serif;">${chipDiffStr} Çip</small>`;
+                const total = document.createElement('span');
+                total.className = 'score-total';
+                const chipDiff = (player.lastWonChips || 0) - (this.game.entryBet || 0);
+                const chipDiffStr = chipDiff >= 0 ? `+${chipDiff}` : `${chipDiff}`;
+                total.innerHTML = `<span style="font-weight: 700;">${player.score} P</span><br><small style="color: ${chipDiff >= 0 ? '#00e676' : '#ff5252'}; font-size: 10px; font-weight: 600; font-family: Outfit, sans-serif;">${chipDiffStr} Çip</small>`;
 
-            row.appendChild(name);
-            row.appendChild(handSum);
-            row.appendChild(islekCeza);
-            row.appendChild(thisRoundTotal);
-            row.appendChild(total);
-            list.appendChild(row);
-        });
+                row.appendChild(name);
+                row.appendChild(handSum);
+                row.appendChild(islekCeza);
+                row.appendChild(thisRoundTotal);
+                row.appendChild(total);
+                list.appendChild(row);
+            });
 
-        if (this.game.partnerMode) {
-            const teamASum = (this.game.players[0].lastRoundTotal || 0) + (this.game.players[2].lastRoundTotal || 0);
-            const teamBSum = (this.game.players[1].lastRoundTotal || 0) + (this.game.players[3].lastRoundTotal || 0);
-            const teamATotal = this.game.players[0].score + this.game.players[2].score;
-            const teamBTotal = this.game.players[1].score + this.game.players[3].score;
+            if (this.game.partnerMode) {
+                const teamASum = (this.game.players[0].lastRoundTotal || 0) + (this.game.players[2].lastRoundTotal || 0);
+                const teamBSum = (this.game.players[1].lastRoundTotal || 0) + (this.game.players[3].lastRoundTotal || 0);
+                const teamATotal = this.game.players[0].score + this.game.players[2].score;
+                const teamBTotal = this.game.players[1].score + this.game.players[3].score;
 
-            const teamDivider = document.createElement('div');
-            teamDivider.className = 'team-score-divider';
-            teamDivider.innerHTML = '<hr style="border: 0; border-top: 1px dashed rgba(255,255,255,0.15); margin: 12px 0;">';
-            list.appendChild(teamDivider);
+                const teamDivider = document.createElement('div');
+                teamDivider.className = 'team-score-divider';
+                teamDivider.innerHTML = '<hr style="border: 0; border-top: 1px dashed rgba(255,255,255,0.15); margin: 12px 0;">';
+                list.appendChild(teamDivider);
 
-            const teamRow = document.createElement('div');
-            teamRow.className = 'team-score-summary';
-            teamRow.style.display = 'flex';
-            teamRow.style.justifyContent = 'space-between';
-            teamRow.style.padding = '8px 12px';
-            teamRow.style.fontSize = '12px';
-            teamRow.style.fontFamily = 'Outfit, sans-serif';
-            
-            const teamAInfo = document.createElement('div');
-            teamAInfo.innerHTML = `<strong>Siz & Canan (Takım A):</strong> Bu El: <span style="color: var(--primary);">${teamASum > 0 ? '+' : ''}${teamASum}</span> | Toplam: <strong>${teamATotal} Puan</strong>`;
-            
-            const teamBInfo = document.createElement('div');
-            teamBInfo.innerHTML = `<strong>Metin & Oya (Takım B):</strong> Bu El: <span style="color: var(--tile-yellow);">${teamBSum > 0 ? '+' : ''}${teamBSum}</span> | Toplam: <strong>${teamBTotal} Puan</strong>`;
-            
-            teamRow.appendChild(teamAInfo);
-            teamRow.appendChild(teamBInfo);
-            list.appendChild(teamRow);
+                const teamRow = document.createElement('div');
+                teamRow.className = 'team-score-summary';
+                teamRow.style.display = 'flex';
+                teamRow.style.justifyContent = 'space-between';
+                teamRow.style.padding = '8px 12px';
+                teamRow.style.fontSize = '12px';
+                teamRow.style.fontFamily = 'Outfit, sans-serif';
+                
+                const teamAInfo = document.createElement('div');
+                teamAInfo.innerHTML = `<strong>Siz & Canan (Takım A):</strong> Bu El: <span style="color: var(--primary);">${teamASum > 0 ? '+' : ''}${teamASum}</span> | Toplam: <strong>${teamATotal} Puan</strong>`;
+                
+                const teamBInfo = document.createElement('div');
+                teamBInfo.innerHTML = `<strong>Metin & Oya (Takım B):</strong> Bu El: <span style="color: var(--tile-yellow);">${teamBSum > 0 ? '+' : ''}${teamBSum}</span> | Toplam: <strong>${teamBTotal} Puan</strong>`;
+                
+                teamRow.appendChild(teamAInfo);
+                teamRow.appendChild(teamBInfo);
+                list.appendChild(teamRow);
+            }
         }
 
-        this.modalRoundOver.classList.add('active');
+        if (this.modalRoundOver) {
+            this.modalRoundOver.classList.add('active');
+        }
     }
 
     showGameOver() {
-        const list = document.getElementById('final-scores-list');
-        list.innerHTML = '';
+        const list = document.getElementById('final-rankings-list') || document.getElementById('final-scores-list');
+        if (list) list.innerHTML = '';
+
+        const winnerSubEl = document.getElementById('game-winner-subtitle') || document.getElementById('game-winner-msg');
 
         if (this.game.partnerMode) {
             const teamATotal = this.game.players[0].score + this.game.players[2].score;
@@ -4151,49 +4160,55 @@ class OkeyUI {
             } else {
                 winMsg = `🤝 Oyun berabere bitti! (İki takım da ${teamATotal} ceza puanında)`;
             }
-            document.getElementById('game-winner-msg').textContent = winMsg;
+            if (winnerSubEl) winnerSubEl.textContent = winMsg;
 
-            const itemA = document.createElement('div');
-            itemA.className = `final-score-item ${teamATotal <= teamBTotal ? 'winner' : ''}`;
-            itemA.innerHTML = `
-                <span class="name">Siz & Canan (Takım A)</span>
-                <span class="score">${teamATotal} Ceza | Siz: ${this.game.players[0].chips} / Canan: ${this.game.players[2].chips} Çip</span>
-            `;
-            list.appendChild(itemA);
+            if (list) {
+                const itemA = document.createElement('div');
+                itemA.className = `final-score-item ${teamATotal <= teamBTotal ? 'winner' : ''}`;
+                itemA.innerHTML = `
+                    <span class="name">Siz & Canan (Takım A)</span>
+                    <span class="score">${teamATotal} Ceza | Siz: ${this.game.players[0].chips} / Canan: ${this.game.players[2].chips} Çip</span>
+                `;
+                list.appendChild(itemA);
 
-            const itemB = document.createElement('div');
-            itemB.className = `final-score-item ${teamBTotal <= teamATotal ? 'winner' : ''}`;
-            itemB.innerHTML = `
-                <span class="name">Metin & Oya (Takım B)</span>
-                <span class="score">${teamBTotal} Ceza | Metin: ${this.game.players[1].chips} / Oya: ${this.game.players[3].chips} Çip</span>
-            `;
-            list.appendChild(itemB);
+                const itemB = document.createElement('div');
+                itemB.className = `final-score-item ${teamBTotal <= teamATotal ? 'winner' : ''}`;
+                itemB.innerHTML = `
+                    <span class="name">Metin & Oya (Takım B)</span>
+                    <span class="score">${teamBTotal} Ceza | Metin: ${this.game.players[1].chips} / Oya: ${this.game.players[3].chips} Çip</span>
+                `;
+                list.appendChild(itemB);
+            }
         } else {
             const scores = this.game.players.map(p => p.score);
             const minScore = Math.min(...scores);
             const winner = this.game.players[scores.indexOf(minScore)];
 
-            document.getElementById('game-winner-msg').textContent = `${winner.name} oyunu ${minScore} ceza puanıyla kazandı!`;
+            if (winnerSubEl) winnerSubEl.textContent = `${winner.name} oyunu ${minScore} ceza puanıyla kazandı!`;
 
-            this.game.players.forEach(player => {
-                const item = document.createElement('div');
-                item.className = `final-score-item ${player === winner ? 'winner' : ''}`;
-                
-                const name = document.createElement('span');
-                name.className = 'name';
-                name.textContent = player.name;
+            if (list) {
+                this.game.players.forEach(player => {
+                    const item = document.createElement('div');
+                    item.className = `final-score-item ${player === winner ? 'winner' : ''}`;
+                    
+                    const name = document.createElement('span');
+                    name.className = 'name';
+                    name.textContent = player.name;
 
-                const score = document.createElement('span');
-                score.className = 'score';
-                score.textContent = `${player.score} Ceza | ${player.chips} Çip`;
+                    const score = document.createElement('span');
+                    score.className = 'score';
+                    score.textContent = `${player.score} Ceza | ${player.chips} Çip`;
 
-                item.appendChild(name);
-                item.appendChild(score);
-                list.appendChild(item);
-            });
+                    item.appendChild(name);
+                    item.appendChild(score);
+                    list.appendChild(item);
+                });
+            }
         }
 
-        this.modalGameOver.classList.add('active');
+        if (this.modalGameOver) {
+            this.modalGameOver.classList.add('active');
+        }
     }
 
     checkDailyReward() {
