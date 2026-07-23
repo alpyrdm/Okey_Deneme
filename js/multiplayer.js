@@ -140,6 +140,19 @@ class MultiplayerManager {
                     this.onRoomStateChanged(this.seats);
                 }
             }
+        } else if (data.type === 'LEAVE_ROOM') {
+            const seatIdx = data.seatIndex !== undefined ? data.seatIndex : conn.seatIndex;
+            if (seatIdx !== undefined && seatIdx !== -1) {
+                this.seats[seatIdx] = { id: null, name: `Bot ${seatIdx}`, isBot: true };
+                this.connections = this.connections.filter(c => c !== conn);
+                this.broadcast({
+                    type: 'ROOM_STATE_UPDATE',
+                    seats: this.seats
+                });
+                if (this.onRoomStateChanged) {
+                    this.onRoomStateChanged(this.seats);
+                }
+            }
         } else if (data.type === 'GAME_STATE_UPDATE') {
             if (this.onGameStateUpdateReceived) {
                 this.onGameStateUpdateReceived(data);
@@ -150,6 +163,35 @@ class MultiplayerManager {
                 this.onActionReceived(data.action);
             }
             this.broadcast(data, conn);
+        }
+    }
+
+    leaveRoom() {
+        if (this.isHost) {
+            this.broadcast({ type: 'ROOM_CLOSED' });
+            this.connections.forEach(conn => { try { conn.close(); } catch(e){} });
+            this.connections = [];
+            this.isHost = false;
+        } else if (this.hostConnection) {
+            try {
+                this.hostConnection.send({ type: 'LEAVE_ROOM', seatIndex: this.mySeatIndex });
+                this.hostConnection.close();
+            } catch(e){}
+            this.hostConnection = null;
+        }
+        if (this.peer) {
+            try { this.peer.destroy(); } catch(e){}
+            this.peer = null;
+        }
+        this.roomCode = null;
+        this.seats = [
+            { id: null, name: 'Siz', isBot: false },
+            { id: null, name: 'Bot 1', isBot: true },
+            { id: null, name: 'Bot 2', isBot: true },
+            { id: null, name: 'Bot 3', isBot: true }
+        ];
+        if (this.onRoomStateChanged) {
+            this.onRoomStateChanged(this.seats);
         }
     }
 
@@ -188,6 +230,7 @@ class MultiplayerManager {
         const seatIdx = conn.seatIndex;
         if (seatIdx !== undefined && seatIdx !== -1) {
             this.seats[seatIdx] = { id: null, name: `Bot ${seatIdx}`, isBot: true };
+            this.connections = this.connections.filter(c => c !== conn);
             this.broadcast({
                 type: 'ROOM_STATE_UPDATE',
                 seats: this.seats
@@ -237,6 +280,10 @@ class MultiplayerManager {
                             if (this.onStartGameReceived) {
                                 this.onStartGameReceived(data);
                             }
+                        } else if (data.type === 'ROOM_CLOSED') {
+                            alert("Oda kurucusu ayrıldı, oda kapatıldı.");
+                            this.leaveRoom();
+                            if (this.onRoomClosed) this.onRoomClosed();
                         } else if (data.type === 'GAME_STATE_UPDATE') {
                             if (this.onGameStateUpdateReceived) {
                                 this.onGameStateUpdateReceived(data);

@@ -142,6 +142,19 @@ if (typeof window.MultiplayerManager === 'undefined') {
                         this.onRoomStateChanged(this.seats);
                     }
                 }
+            } else if (data.type === 'LEAVE_ROOM') {
+                const seatIdx = data.seatIndex !== undefined ? data.seatIndex : conn.seatIndex;
+                if (seatIdx !== undefined && seatIdx !== -1) {
+                    this.seats[seatIdx] = { id: null, name: `Bot ${seatIdx}`, isBot: true };
+                    this.connections = this.connections.filter(c => c !== conn);
+                    this.broadcast({
+                        type: 'ROOM_STATE_UPDATE',
+                        seats: this.seats
+                    });
+                    if (this.onRoomStateChanged) {
+                        this.onRoomStateChanged(this.seats);
+                    }
+                }
             } else if (data.type === 'GAME_STATE_UPDATE') {
                 if (this.onGameStateUpdateReceived) {
                     this.onGameStateUpdateReceived(data);
@@ -152,6 +165,35 @@ if (typeof window.MultiplayerManager === 'undefined') {
                     this.onActionReceived(data.action);
                 }
                 this.broadcast(data, conn);
+            }
+        }
+
+        leaveRoom() {
+            if (this.isHost) {
+                this.broadcast({ type: 'ROOM_CLOSED' });
+                this.connections.forEach(conn => { try { conn.close(); } catch(e){} });
+                this.connections = [];
+                this.isHost = false;
+            } else if (this.hostConnection) {
+                try {
+                    this.hostConnection.send({ type: 'LEAVE_ROOM', seatIndex: this.mySeatIndex });
+                    this.hostConnection.close();
+                } catch(e){}
+                this.hostConnection = null;
+            }
+            if (this.peer) {
+                try { this.peer.destroy(); } catch(e){}
+                this.peer = null;
+            }
+            this.roomCode = null;
+            this.seats = [
+                { id: null, name: 'Siz', isBot: false },
+                { id: null, name: 'Bot 1', isBot: true },
+                { id: null, name: 'Bot 2', isBot: true },
+                { id: null, name: 'Bot 3', isBot: true }
+            ];
+            if (this.onRoomStateChanged) {
+                this.onRoomStateChanged(this.seats);
             }
         }
 
@@ -190,6 +232,7 @@ if (typeof window.MultiplayerManager === 'undefined') {
             const seatIdx = conn.seatIndex;
             if (seatIdx !== undefined && seatIdx !== -1) {
                 this.seats[seatIdx] = { id: null, name: `Bot ${seatIdx}`, isBot: true };
+                this.connections = this.connections.filter(c => c !== conn);
                 this.broadcast({
                     type: 'ROOM_STATE_UPDATE',
                     seats: this.seats
@@ -239,6 +282,10 @@ if (typeof window.MultiplayerManager === 'undefined') {
                                 if (this.onStartGameReceived) {
                                     this.onStartGameReceived(data);
                                 }
+                            } else if (data.type === 'ROOM_CLOSED') {
+                                alert("Oda kurucusu ayrıldı, oda kapatıldı.");
+                                this.leaveRoom();
+                                if (this.onRoomClosed) this.onRoomClosed();
                             } else if (data.type === 'GAME_STATE_UPDATE') {
                                 if (this.onGameStateUpdateReceived) {
                                     this.onGameStateUpdateReceived(data);
@@ -1887,7 +1934,14 @@ class OkeyUI {
             const roomMode = activeRoomBtn ? activeRoomBtn.dataset.roomMode : 'local';
 
             const inputName = document.getElementById('input-player-name');
-            const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "Siz";
+            const playerName = (inputName && inputName.value.trim()) ? inputName.value.trim() : "";
+
+            if (!playerName) {
+                alert("Lütfen oyuna başlamadan veya odaya katılmadan önce adınızı giriniz!");
+                if (inputName) inputName.focus();
+                return;
+            }
+
             if (this.game && this.game.players && this.game.players[0]) {
                 this.game.players[0].name = playerName;
             }
@@ -1991,6 +2045,12 @@ class OkeyUI {
         this.checkDailyReward();
         this.checkUrlRoomJoin();
         
+        window.addEventListener('beforeunload', () => {
+            if (this.multiplayer) {
+                this.multiplayer.leaveRoom();
+            }
+        });
+
         setInterval(() => {
             this.checkDailyReward();
         }, 30000);
@@ -2147,9 +2207,13 @@ class OkeyUI {
         const btnLeaveLobby = document.getElementById('btn-leave-lobby');
         if (btnLeaveLobby) {
             btnLeaveLobby.addEventListener('click', () => {
+                this.multiplayer.leaveRoom();
+                const roomBadge = document.getElementById('room-code-badge-view');
+                if (roomBadge) roomBadge.style.display = 'none';
                 const modalLobby = document.getElementById('modal-lobby');
                 if (modalLobby) modalLobby.classList.remove('active');
-                this.modalStart.classList.add('active');
+                if (this.modalStart) this.modalStart.classList.add('active');
+                this.addLog("Odadan ayrıldınız.", "system");
             });
         }
 
