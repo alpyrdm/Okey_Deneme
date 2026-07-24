@@ -10,20 +10,23 @@
     <link rel="stylesheet" href="style.css">
     <style>
         @keyframes giftFloat {
-            0% { transform: translate(-50%, -50%) scale(0.2) rotate(-15deg); opacity: 0; }
-            25% { transform: translate(-50%, -65%) scale(1.5) rotate(10deg); opacity: 1; }
-            70% { transform: translate(-50%, -85%) scale(1.2) rotate(-5deg); opacity: 1; }
-            100% { transform: translate(-50%, -130%) scale(0.8) rotate(0deg); opacity: 0; }
+            0% { transform: translate(-50%, -20%) scale(0.3) rotate(-15deg); opacity: 0; }
+            25% { transform: translate(-50%, -50%) scale(1.6) rotate(12deg); opacity: 1; }
+            70% { transform: translate(-50%, -90%) scale(1.2) rotate(-5deg); opacity: 1; }
+            100% { transform: translate(-50%, -140%) scale(0.8) rotate(0deg); opacity: 0; }
+        }
+        .column-header {
+            position: relative !important;
         }
         .floating-gift-anim {
             position: absolute;
-            top: 40%;
+            top: 50%;
             left: 50%;
-            z-index: 9999;
-            font-size: 52px;
+            z-index: 99999;
+            font-size: 54px;
             pointer-events: none;
-            animation: giftFloat 2.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            filter: drop-shadow(0 6px 16px rgba(0,0,0,0.6));
+            animation: giftFloat 2.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            filter: drop-shadow(0 8px 20px rgba(0,0,0,0.7));
         }
         .gift-card-btn {
             background: rgba(255, 255, 255, 0.06);
@@ -484,8 +487,8 @@
     </div>
 
     <!-- SCRIPT ENTRYPOINT -->
-    <script src="js/multiplayer.js?v=19.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=19.0.0';}"></script>
-    <script src="js/app.js?v=19.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=19.0.0';}"></script>
+    <script src="js/multiplayer.js?v=20.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='multiplayer.js?v=20.0.0';}"></script>
+    <script src="js/app.js?v=20.0.0" onerror="if(!this.dataset.retried){this.dataset.retried=true; this.src='app.js?v=20.0.0';}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof startApp === 'function') {

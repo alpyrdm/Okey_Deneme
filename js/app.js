@@ -1562,7 +1562,8 @@ class OkeyBot {
                     this.game.lastDiscardedTile = null;
                 }
                 const discarded = bot.discards[bot.discards.length - 1];
-                log.push(`${bot.name} (Güvenli Çıkış) yere ${discarded.color}-${discarded.number} attı.`);
+                const discStr = discarded ? `${discarded.color}-${discarded.number}` : 'taş';
+                log.push(`${bot.name} (Güvenli Çıkış) yere ${discStr} attı.`);
             }
         }
 
@@ -3019,6 +3020,19 @@ class OkeyUI {
                 this.game.drawnThisTurn = false;
                 this.game.discardTakenThisTurn = false;
                 logs = [`⚠️ [Failsafe] ${bot ? bot.name : 'Bot'} hata aldı ve turu tamamlandı.`];
+            }
+
+            // Absolute Watchdog Guarantee: If turn was not incremented, force advance it!
+            if (this.game.turn === currentBotIdx && this.game.status === 'playing') {
+                const bot = this.game.players[currentBotIdx];
+                if (bot && bot.hand && bot.hand.length > 0) {
+                    const fallbackTile = bot.hand.splice(0, 1)[0];
+                    bot.discards.push(fallbackTile);
+                    logs.push(`⚠️ [Failsafe] ${bot.name} turunu tamamladı.`);
+                }
+                this.game.turn = (this.game.turn + 1) % 4;
+                this.game.drawnThisTurn = false;
+                this.game.discardTakenThisTurn = false;
             }
 
             logs.forEach(msg => {
