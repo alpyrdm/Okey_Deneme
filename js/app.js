@@ -2032,6 +2032,9 @@ class OkeyUI {
             this.syncRackFromHand();
             this.renderBoard();
             this.addLog("Oyun başladı! Taşlar dağıtıldı.", "system");
+            if (this.game.players[this.game.turn].isBot) {
+                this.triggerBotTurns();
+            }
         } catch (e) {
             console.error("Direct start error:", e);
             const m = document.getElementById('modal-start');
@@ -2561,7 +2564,8 @@ class OkeyUI {
                     this.renderBoard();
                     this.addLog("Taş attınız. Sıra diğer oyuncuda.");
                     this.broadcastGameState();
-                    if (this.multiplayer.isHost && this.game.players[this.game.turn].isBot) {
+                    const isHostOrLocal = !this.multiplayer || !this.multiplayer.roomCode || this.multiplayer.isHost;
+                    if (isHostOrLocal && this.game.players[this.game.turn].isBot) {
                         this.triggerBotTurns();
                     }
                 } else {
@@ -2748,8 +2752,11 @@ class OkeyUI {
                     
                     if (this.game.status === 'round_end') {
                         this.showRoundOver();
-                    } else if (this.multiplayer.isHost && this.game.players[this.game.turn].isBot) {
-                        this.triggerBotTurns();
+                    } else {
+                        const isHostOrLocal = !this.multiplayer || !this.multiplayer.roomCode || this.multiplayer.isHost;
+                        if (isHostOrLocal && this.game.players[this.game.turn].isBot) {
+                            this.triggerBotTurns();
+                        }
                     }
                 } else {
                     audio.playError();
