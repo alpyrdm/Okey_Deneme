@@ -2993,11 +2993,18 @@ class OkeyUI {
 
         const currentP = this.game.players[this.game.turn];
         if (!currentP || !currentP.isBot || currentP.isHuman) {
+            this.isBotTurnScheduled = false;
             this.renderBoard();
             return;
         }
 
+        if (this.isBotTurnScheduled) {
+            return;
+        }
+        this.isBotTurnScheduled = true;
+
         if (this.game.deck.length === 0 && !this.game.drawnThisTurn) {
+            this.isBotTurnScheduled = false;
             this.game.endRoundNull();
             this.renderBoard();
             this.showRoundOver();
@@ -3005,14 +3012,12 @@ class OkeyUI {
             return;
         }
 
-        if (this.botTurnTimeoutId) {
-            clearTimeout(this.botTurnTimeoutId);
-        }
-
         const currentBotIdx = this.game.turn;
         this.renderBoard();
 
         this.botTurnTimeoutId = setTimeout(() => {
+            this.isBotTurnScheduled = false;
+
             if (this.game.status !== 'playing' || this.game.turn !== currentBotIdx) {
                 return;
             }
@@ -3066,7 +3071,7 @@ class OkeyUI {
             } else if (this.game.players[this.game.turn].isBot) {
                 this.triggerBotTurns();
             }
-        }, this.botSpeed || 800);
+        }, 500);
     }
 
     renderBoard() {
