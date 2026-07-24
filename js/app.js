@@ -1431,7 +1431,7 @@ class OkeyBot {
         let drewFromDiscard = false;
 
         // In Okey 101, if a player already has 22 tiles (e.g. dealer on the first turn), they do not draw!
-        if (bot.hand.length < 22) {
+        if (!this.game.drawnThisTurn && bot.hand.length < 22) {
             if (prevDiscards.length > 0) {
                 const potentialTile = prevDiscards[prevDiscards.length - 1];
                 const canUseDiscard = this.evaluateDiscardUse(botIdx, potentialTile);
@@ -1447,8 +1447,6 @@ class OkeyBot {
                 const drawnTile = this.game.drawTile(botIdx);
                 if (drawnTile) {
                     log.push(`${bot.name} desteden bir taş çekti.`);
-                } else {
-                    return log;
                 }
             }
         }
@@ -2993,18 +2991,11 @@ class OkeyUI {
 
         const currentP = this.game.players[this.game.turn];
         if (!currentP || !currentP.isBot || currentP.isHuman) {
-            this.isBotTurnScheduled = false;
             this.renderBoard();
             return;
         }
 
-        if (this.isBotTurnScheduled) {
-            return;
-        }
-        this.isBotTurnScheduled = true;
-
         if (this.game.deck.length === 0 && !this.game.drawnThisTurn) {
-            this.isBotTurnScheduled = false;
             this.game.endRoundNull();
             this.renderBoard();
             this.showRoundOver();
@@ -3012,12 +3003,14 @@ class OkeyUI {
             return;
         }
 
+        if (this.botTurnTimeoutId) {
+            clearTimeout(this.botTurnTimeoutId);
+        }
+
         const currentBotIdx = this.game.turn;
         this.renderBoard();
 
         this.botTurnTimeoutId = setTimeout(() => {
-            this.isBotTurnScheduled = false;
-
             if (this.game.status !== 'playing' || this.game.turn !== currentBotIdx) {
                 return;
             }
@@ -3071,7 +3064,7 @@ class OkeyUI {
             } else if (this.game.players[this.game.turn].isBot) {
                 this.triggerBotTurns();
             }
-        }, 500);
+        }, 300);
     }
 
     renderBoard() {
