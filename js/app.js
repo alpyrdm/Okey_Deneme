@@ -586,10 +586,10 @@ class GameState {
         } catch (e) {}
 
         this.players = [
-            { name: "Siz", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: true, score: 0, chips: initialChips },
-            { name: "Bot 1 (Metin)", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: false, score: 0, chips: 5000 },
-            { name: "Bot 2 (Canan)", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: false, score: 0, chips: 5000 },
-            { name: "Bot 3 (Oya)", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: false, score: 0, chips: 5000 }
+            { name: "Siz", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: true, isBot: false, score: 0, chips: initialChips },
+            { name: "Bot 1 (Metin)", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: false, isBot: true, score: 0, chips: 5000 },
+            { name: "Bot 2 (Canan)", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: false, isBot: true, score: 0, chips: 5000 },
+            { name: "Bot 3 (Oya)", hand: [], openedMelds: [], openedInPairs: false, discards: [], isHuman: false, isBot: true, score: 0, chips: 5000 }
         ];
         this.entryBet = 100;
         this.roundPot = 0;
@@ -2567,7 +2567,7 @@ class OkeyUI {
                     this.addLog("Taş attınız. Sıra diğer oyuncuda.");
                     this.broadcastGameState();
                     const isHostOrLocal = !this.multiplayer || !this.multiplayer.roomCode || this.multiplayer.isHost;
-                    if (isHostOrLocal && this.game.players[this.game.turn].isBot) {
+                    if (isHostOrLocal && this.isCurrentTurnBot()) {
                         this.triggerBotTurns();
                     }
                 } else {
@@ -2756,7 +2756,7 @@ class OkeyUI {
                         this.showRoundOver();
                     } else {
                         const isHostOrLocal = !this.multiplayer || !this.multiplayer.roomCode || this.multiplayer.isHost;
-                        if (isHostOrLocal && this.game.players[this.game.turn].isBot) {
+                        if (isHostOrLocal && this.isCurrentTurnBot()) {
                             this.triggerBotTurns();
                         }
                     }
@@ -2982,6 +2982,13 @@ class OkeyUI {
         }
     }
 
+    isCurrentTurnBot() {
+        if (!this.game || !this.game.players) return false;
+        const currentP = this.game.players[this.game.turn];
+        if (!currentP) return false;
+        return currentP.isBot === true || (!currentP.isHuman && this.game.turn !== this.getMySeatIndex());
+    }
+
     triggerBotTurns() {
         if (this.game.status !== 'playing') return;
 
@@ -2989,8 +2996,7 @@ class OkeyUI {
             return;
         }
 
-        const currentP = this.game.players[this.game.turn];
-        if (!currentP || !currentP.isBot || currentP.isHuman) {
+        if (!this.isCurrentTurnBot()) {
             this.renderBoard();
             return;
         }
@@ -3061,7 +3067,7 @@ class OkeyUI {
 
             if (this.game.status === 'round_end') {
                 this.showRoundOver();
-            } else if (this.game.players[this.game.turn].isBot) {
+            } else if (this.isCurrentTurnBot()) {
                 this.triggerBotTurns();
             }
         }, 300);
