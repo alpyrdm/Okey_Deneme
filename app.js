@@ -1721,28 +1721,32 @@ class OkeyBot {
             }
         });
 
-        // DFS Backtracking to find the absolute highest scoring combination of non-overlapping melds
+        // Sort candidates by points descending and limit top candidates to prevent exponential DFS freeze
+        uniqueCandidates.sort((a, b) => b.points - a.points);
+        const topCandidates = uniqueCandidates.slice(0, 18);
+
         let bestCombination = [];
         let maxCombinationPoints = 0;
+        let dfsCount = 0;
 
         const findBest = (index, currentMelds, currentPoints, usedIds) => {
+            if (++dfsCount > 1000) return;
+
             if (currentPoints > maxCombinationPoints) {
                 maxCombinationPoints = currentPoints;
                 bestCombination = [...currentMelds];
             }
 
-            for (let i = index; i < uniqueCandidates.length; i++) {
-                const candidate = uniqueCandidates[i];
-                // Check conflicts
+            for (let i = index; i < topCandidates.length; i++) {
+                if (dfsCount > 1000) break;
+                const candidate = topCandidates[i];
                 const hasConflict = candidate.some(tile => usedIds.has(tile.id));
                 if (!hasConflict) {
-                    // Choose
                     candidate.forEach(tile => usedIds.add(tile.id));
                     currentMelds.push(candidate);
                     
                     findBest(i + 1, currentMelds, currentPoints + candidate.points, usedIds);
                     
-                    // Backtrack
                     currentMelds.pop();
                     candidate.forEach(tile => usedIds.delete(tile.id));
                 }
